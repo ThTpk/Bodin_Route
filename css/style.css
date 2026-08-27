@@ -574,266 +574,47 @@ code {
 
 .detail-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 
-/* ---------------------------- แผนที่ ---------------------------- */
-/* โทนสีของแผนที่แยกจากโทนสีของหน้าเว็บ เพื่อให้ควบคุมความคมชัดได้อิสระ */
-.mapwrap {
+/* ---------------------------- ภาพกราฟ 3 มิติ ---------------------------- */
+.viewport {
   position: relative;
   overflow: hidden;
-
-  --map-bg: #eceadf;          /* พื้นโรงเรียน โทนกระดาษ */
-  --map-wall: #9a917f;        /* เส้นผนัง */
-  --map-wall-soft: #c3bcab;   /* เส้นแบ่งห้องภายใน */
-  --map-room: #fbfaf6;        /* พื้นห้องทั่วไป */
-  --map-corridor: #e4e0d4;    /* ทางเดินในอาคาร */
-  --map-shell: #dedacd;      /* อาคารที่ไม่ได้อยู่ชั้นที่เลือก */
-  --map-path: #f4f2ea;        /* ทางเดินกลางแจ้ง */
-  --map-path-edge: #d8d3c4;
-  --map-ink: #3f3a30;         /* ตัวอักษรบนแผนที่ */
-  --map-ink-soft: #7d7364;
-
-  --map-green: #cfe0c0;
-  --map-green-line: #a9c096;
-  --map-sport: #dfe8cf;
-  --map-yard: #efe6c9;
-  --map-roof: #dfe1ec;
-  --map-parking: #e3e1da;
-  --map-pool: #c6e2ef;
-
-  background: var(--map-bg);
+  background: var(--surface-2);
 }
 
-@media (prefers-color-scheme: dark) {
-  .mapwrap {
-    --map-bg: #10161f;
-    --map-wall: #55637a;
-    --map-wall-soft: #3b4658;
-    --map-room: #1e2836;
-    --map-corridor: #263243;
-    --map-shell: #1a2230;
-    --map-path: #222c3a;
-    --map-path-edge: #2e3a4b;
-    --map-ink: #dce3ee;
-    --map-ink-soft: #8d9bb2;
-
-    --map-green: #24382a;
-    --map-green-line: #37543f;
-    --map-sport: #26372c;
-    --map-yard: #38321f;
-    --map-roof: #232a3d;
-    --map-parking: #232833;
-    --map-pool: #16394b;
-  }
-}
-
-#map {
+#scene {
   width: 100%;
   height: 100%;
   display: block;
   cursor: grab;
   touch-action: none;
+  outline: none;
 }
-#map.is-dragging { cursor: grabbing; }
+#scene.is-dragging { cursor: grabbing; }
+#scene:focus-visible { box-shadow: inset 0 0 0 2px var(--navy-600); }
 
-.map-ground { fill: var(--map-bg); }
-
-/* ---- พื้นที่กลางแจ้ง ---- */
-.area-shape { stroke-width: .45; }
-.area-sport   .area-shape { fill: var(--map-sport);   stroke: var(--map-green-line); }
-.area-green   .area-shape { fill: var(--map-green);   stroke: var(--map-green-line); }
-.area-yard    .area-shape { fill: var(--map-yard);    stroke: #d8c68d; }
-.area-roof    .area-shape { fill: var(--map-roof);    stroke: #b9bed4; }
-.area-parking .area-shape { fill: var(--map-parking); stroke: #cbc8bf; }
-.area-pool    .area-shape { fill: var(--map-pool);    stroke: #8ec6dd; }
-
-.area-line {
-  fill: none;
-  stroke: #fff;
-  stroke-opacity: .55;
-  stroke-width: .4;
-}
-@media (prefers-color-scheme: dark) {
-  .area-line { stroke: #7f9a88; stroke-opacity: .5; }
-}
-
-.area-label {
-  font-size: 4.2px;
-  font-weight: 600;
-  fill: var(--map-ink-soft);
+.view-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 12px;
+  transform: translateX(-50%);
+  z-index: 4;
   pointer-events: none;
-  opacity: .9;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--surface) 78%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 12px;
+  white-space: nowrap;
+  max-width: calc(100% - 24px);
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* ---- ทางเดินกลางแจ้ง ---- */
-.walkway-base {
-  stroke: var(--map-path-edge);
-  stroke-width: 5.4;
-  stroke-linecap: round;
-}
-.walkway-top {
-  stroke: var(--map-path);
-  stroke-width: 4.2;
-  stroke-linecap: round;
-}
-
-/* ---- อาคาร ---- */
-.building-shell {
-  fill: var(--map-room);
-  stroke: var(--map-wall);
-  stroke-width: .75;
-}
-.building.is-shell .building-shell {
-  fill: var(--map-shell);
-  stroke: var(--map-wall-soft);
-}
-.building.is-shell { cursor: pointer; }
-.building.is-shell:hover .building-shell { stroke: var(--map-wall); }
-
-.corridor-band { fill: var(--map-corridor); }
-
-.building-label {
-  font-size: 5.6px;
-  font-weight: 700;
-  fill: var(--map-ink-soft);
-  pointer-events: none;
-}
-.building-label.is-muted { opacity: .75; }
-
-.building-tag {
-  font-size: 4.6px;
-  font-weight: 700;
-  fill: var(--map-ink-soft);
-  pointer-events: none;
-  paint-order: stroke;
-  stroke: var(--map-bg);
-  stroke-width: 1.2px;
-  stroke-linejoin: round;
-}
-
-/* ---- ห้อง ---- */
-.room { cursor: pointer; }
-.room-shape {
-  fill: var(--map-room);
-  stroke: var(--map-wall);
-  stroke-width: .32;
-}
-.room:hover .room-shape { stroke-width: .7; stroke: var(--navy-600); }
-
-.room-plain   .room-shape { fill: var(--map-room); }
-.room-lab     .room-shape { fill: color-mix(in srgb, #14b8a6 12%, var(--map-room)); }
-.room-staff   .room-shape { fill: color-mix(in srgb, #ea580c 12%, var(--map-room)); }
-.room-special .room-shape { fill: color-mix(in srgb, #a855f7 13%, var(--map-room)); }
-.room-toilet  .room-shape { fill: color-mix(in srgb, #0ea5e9 14%, var(--map-room)); }
-.room-care    .room-shape { fill: color-mix(in srgb, #dc2626 13%, var(--map-room)); }
-.room-food    .room-shape { fill: color-mix(in srgb, #f59e0b 16%, var(--map-room)); }
-.room-service .room-shape { fill: color-mix(in srgb, #64748b 15%, var(--map-room)); }
-
-.room-door {
-  stroke: var(--map-corridor);
-  stroke-width: .75;
-  stroke-linecap: butt;
-}
-.stair-tread { stroke: var(--map-wall); stroke-width: .22; stroke-opacity: .8; }
-.lift-mark { stroke: var(--map-wall); stroke-width: .22; stroke-opacity: .7; }
-
-.hatch-line { stroke: var(--map-wall-soft); stroke-width: .5; }
-
-/* ป้ายในห้องจะโผล่ตามระดับการซูม เพื่อไม่ให้รกตอนซูมออก */
-.room-label, .room-glyph {
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity .16s;
-}
-/* ขนาดตัวอักษรกำหนดจาก map.js ให้พอดีกล่องแต่ละห้อง */
-.room-label {
-  font-weight: 600;
-  fill: var(--map-ink);
-}
-#map.zoom-1 .room-label { opacity: .95; }
-#map.zoom-2 .room-glyph { opacity: .95; }
-.room.is-on-route .room-label,
-.room.is-selected .room-label { opacity: 1; }
-
-.room.is-on-route .room-shape {
-  fill: color-mix(in srgb, var(--route) 22%, var(--map-room));
-  stroke: var(--route);
-  stroke-width: .55;
-}
-.room.is-selected .room-shape {
-  stroke: var(--navy-600);
-  stroke-width: .9;
-}
-
-/* ---- โครงสร้างกราฟ (โหมดตรวจข้อมูล) ---- */
-.graph-edge { stroke: #7c8aa0; stroke-width: .3; stroke-opacity: .6; }
-.graph-edge.edge-outdoor { stroke: #10b981; stroke-opacity: .55; }
-.graph-edge.edge-room { stroke: #94a3b8; stroke-dasharray: .7 .7; }
-.structural-dot { fill: #64748b; fill-opacity: .7; }
-.node-structural { pointer-events: none; }
-
-/* ---- ไอคอนโหนดกลางแจ้ง ---- */
-.node { cursor: pointer; }
-.node-halo { fill: var(--map-bg); fill-opacity: .95; }
-.node-dot { stroke: #fff; stroke-width: .5; }
-.node-glyph { font-size: 2.6px; pointer-events: none; }
-.node-label {
-  font-size: 3px;
-  fill: var(--map-ink);
-  font-weight: 600;
-  text-anchor: middle;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity .16s;
-  paint-order: stroke;
-  stroke: var(--map-bg);
-  stroke-width: 1px;
-  stroke-linejoin: round;
-}
-#map.zoom-1 .node-label { opacity: .95; }
-.node.is-selected .node-label,
-.node.is-on-route .node-label { opacity: 1; }
-.node:hover .node-dot { r: 3; }
-.node.is-on-route .node-dot { stroke: var(--route); stroke-width: .9; }
-.node.is-selected .node-halo { fill: var(--route); fill-opacity: .3; r: 5; }
-
-/* ---- เส้นทาง ---- */
-.route-casing {
-  fill: none;
-  stroke: #fff;
-  stroke-width: 3.4;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-@media (prefers-color-scheme: dark) {
-  .route-casing { stroke: #0b1017; }
-}
-.route-line {
-  fill: none;
-  stroke: var(--route);
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-.route-casing.is-faded { stroke-opacity: .3; }
-.route-line.is-faded { stroke-opacity: .3; stroke-dasharray: 2.4 2; }
-
-.route-vertical {
-  fill: none;
-  stroke: var(--route);
-  stroke-width: 1.4;
-  stroke-dasharray: 1.5 1.3;
-}
-.route-vertical.is-faded { stroke-opacity: .3; }
-
-/* ---- หมุดต้นทาง/ปลายทาง ---- */
-.endpoint .pin-body { fill: var(--route); stroke: #fff; stroke-width: .8; }
-.endpoint-start .pin-body { fill: #16a34a; }
-.endpoint.is-faded { opacity: .35; }
-.pin-text { font-size: 6px; font-weight: 700; fill: #fff; }
-
-/* ---------------------------- HUD บนแผนที่ ---------------------------- */
-.map-hud { position: absolute; z-index: 5; }
-.map-hud--left { left: 14px; top: 14px; }
-.map-hud--right { right: 14px; top: 14px; }
+/* ---------------------------- HUD บนภาพ ---------------------------- */
+.view-hud { position: absolute; z-index: 5; display: grid; gap: 8px; }
+.view-hud--left { left: 14px; top: 14px; }
+.view-hud--right { right: 14px; top: 14px; justify-items: end; }
 
 .hud-card {
   background: var(--surface);
@@ -855,7 +636,8 @@ code {
   font: inherit;
   font-size: 13px;
   font-weight: 600;
-  width: 34px; height: 30px;
+  min-width: 56px; height: 30px;
+  padding: 0 8px;
   border-radius: 7px;
   border: 1px solid transparent;
   background: var(--surface-2);
@@ -882,6 +664,34 @@ code {
 }
 .hud-zoom button:hover { background: var(--border); }
 
+.hud-view { display: grid; gap: 4px; width: 168px; }
+.hud-toggle {
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  padding: 6px 9px;
+  border-radius: 7px;
+  border: 1px solid transparent;
+  background: var(--surface-2);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.hud-toggle:hover { border-color: var(--navy-600); }
+.hud-toggle.is-on {
+  background: var(--navy-800);
+  border-color: var(--navy-800);
+  color: #fff;
+}
+.hud-range {
+  display: grid;
+  gap: 3px;
+  font-size: 10.5px;
+  color: var(--text-muted);
+  padding: 4px 4px 2px;
+}
+.hud-range input { width: 100%; accent-color: var(--navy-600); }
+
+/* ---------------------------- สัญลักษณ์ ---------------------------- */
 .legend {
   position: absolute;
   left: 14px;
@@ -909,7 +719,7 @@ code {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-  padding: 0 10px 10px;
+  padding: 0 10px 8px;
 }
 .legend-item {
   display: flex;
@@ -933,20 +743,20 @@ code {
   display: grid; place-items: center;
   font-size: 10px;
 }
-
-.map-compass {
-  position: absolute;
-  right: 16px; bottom: 16px;
-  z-index: 4;
-  display: grid;
-  justify-items: center;
+.legend-edges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  padding: 0 12px 10px;
   color: var(--text-muted);
-  font-size: 10px;
-  font-weight: 700;
-  opacity: .8;
-  pointer-events: none;
+  font-size: 11px;
 }
-.map-compass svg { width: 26px; height: 26px; }
+.legend-edge { display: inline-flex; align-items: center; gap: 5px; }
+.legend-edge i {
+  width: 16px; height: 3px;
+  border-radius: 2px;
+  display: inline-block;
+}
 
 /* ---------------------------- แจ้งเตือน / กล่องข้อความ ---------------------------- */
 .toast {
@@ -1046,7 +856,7 @@ code {
     position: relative;
   }
 
-  .mapwrap { height: calc(100dvh - var(--topbar-h)); }
+  .viewport { height: calc(100dvh - var(--topbar-h)); }
 
   .sidebar {
     position: fixed;
@@ -1088,7 +898,9 @@ code {
 
   .panel { box-shadow: none; }
   .legend { display: none; }
-  .map-compass { bottom: 180px; }
+  .view-hint { display: none; }
+  .hud-view { width: 148px; }
+  .hud-view .hud-toggle { font-size: 11px; padding: 5px 7px; }
   .toast { bottom: 190px; }
   .stat-grid { grid-template-columns: repeat(2, 1fr); }
   .brand-text h1 { font-size: 14px; }

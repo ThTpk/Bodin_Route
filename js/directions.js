@@ -28,6 +28,7 @@ const TYPE_LABEL = {
   meeting: 'ห้องประชุม',
   activity: 'ห้องกิจกรรม',
   stairs: 'บันได',
+  bridge: 'ทางเชื่อมระหว่างอาคาร',
   elevator: 'ลิฟต์',
   entrance: 'ทางเข้าอาคาร',
   gate: 'ประตูโรงเรียน',
@@ -159,6 +160,7 @@ function buildDirections(graph, route, buildingsById) {
     let time = 0;
     let j = i;
     let vectorAtStart = null;
+    let crossedBridge = false;
     const passed = [];
 
     while (j < steps.length && !VERTICAL_TYPES.has(steps[j].edge.type)) {
@@ -177,6 +179,7 @@ function buildDirections(graph, route, buildingsById) {
 
       distance += steps[j].edge.distance;
       time += steps[j].edge.time || steps[j].edge.distance / 1.3;
+      if (steps[j].edge.type === 'bridge') crossedBridge = true;
       if (b.type !== 'corridor' && b.type !== 'junction' && j < steps.length - 1) {
         passed.push(b);
       }
@@ -202,6 +205,12 @@ function buildDirections(graph, route, buildingsById) {
       const b = buildingsById.get(toBuilding);
       const lead = turn.text === 'เดินตรงไป' ? 'เดินตรงไป' : `${turn.text} แล้วเดิน`;
       title = `${lead}เข้าสู่${b ? b.name : 'อาคาร'}`;
+      icon = 'building';
+    } else if (crossedBridge) {
+      // ช่วงที่ผ่านทางเชื่อมระหว่างอาคาร บอกให้ชัดว่ากำลังข้ามไปอีกอาคาร
+      const lead = turn.text === 'เดินตรงไป' ? 'เดินตรงไป' : `${turn.text} แล้ว`;
+      const b = toBuilding ? buildingsById.get(toBuilding) : null;
+      title = `${lead}ข้ามทางเชื่อมไป${b ? b.name : displayName(toNode, buildingsById)}`;
       icon = 'building';
     } else if (!toBuilding && fromBuilding) {
       const lead = turn.text === 'เดินตรงไป' ? 'เดินตรงไป' : `${turn.text} แล้วเดิน`;

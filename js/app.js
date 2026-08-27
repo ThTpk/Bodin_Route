@@ -52,8 +52,8 @@ async function loadData() {
       const building = n.building ? state.buildingsById.get(n.building) : null;
       const context = building
         ? `${building.name} · ชั้น ${n.floor}`
-        : 'พื้นที่กลางแจ้ง';
-      // รวมคำอธิบายเข้าไปด้วย เพื่อให้ค้นด้วย "ม.1/5" หรือชื่อวิชาแล้วเจอห้อง
+        : `${Directions.typeLabel(n.type)} · ชั้น ${n.floor}`;
+      // รวมคำอธิบายและชื่อพ้องเข้าไปด้วย เพื่อให้ค้นด้วยรหัสห้องแล้วเจอ
       const haystack = [
         n.name, context, Directions.typeLabel(n.type), n.description || '',
         ...(n.aliases || []),
@@ -75,7 +75,9 @@ function normalize(text) {
 
 function nodeContext(node) {
   const building = node.building ? state.buildingsById.get(node.building) : null;
-  return building ? `${building.name} · ชั้น ${node.floor}` : 'พื้นที่กลางแจ้ง';
+  return building
+    ? `${building.name} · ชั้น ${node.floor}`
+    : `${Directions.typeLabel(node.type)} · ชั้น ${node.floor}`;
 }
 
 /* =============================================================
@@ -223,9 +225,9 @@ function icon(name) {
  * ใช้ BFS บนกราฟที่ตัดเส้นเชื่อมชนิดบันไดออก แล้วดูว่าเหลืออาคารใดที่ยังไปถึงชั้นสองขึ้นไปได้
  */
 function stepFreeBuildingNames() {
-  const gate = state.graph.node('out-gate2') || [...state.graph.nodes.values()][0];
-  const visited = new Set([gate.id]);
-  const queue = [gate.id];
+  const origin = state.start || [...state.graph.nodes.values()][0];
+  const visited = new Set([origin.id]);
+  const queue = [origin.id];
   while (queue.length > 0) {
     const current = queue.pop();
     state.graph.neighbors(current).forEach((link) => {
@@ -252,7 +254,7 @@ function renderRoute() {
 
   if (!route) {
     panel.hidden = true;
-    state.map.renderRoute(null);
+    state.view.renderRoute(null);
     return;
   }
 
@@ -271,12 +273,13 @@ function renderRoute() {
           ยังไม่มีลิฟต์หรือทางลาดบันทึกไว้ จึงขึ้นไปได้ด้วยบันไดเท่านั้น</p>
           <p>อาคารที่ขึ้นชั้นบนได้โดยไม่ใช้บันได:
           ${stepFree.length ? stepFree.join(', ') : 'ยังไม่มีในข้อมูล'}</p>
-          <p>ถ้าอาคารนี้มีลิฟต์หรือทางลาดอยู่จริง ให้เพิ่มโหนดและเส้นเชื่อมชนิด
-          <code>elevator</code> หรือ <code>ramp</code> ที่หน้า
-          <a href="editor.html">แก้ไขข้อมูลแผนที่</a></p>`
+          <p>ในชุดข้อมูลนี้ บันไดเป็นทางเดียวที่ข้ามชั้นได้
+          ส่วนทางเชื่อมระหว่างอาคารอยู่ที่ชั้น 2 เท่านั้น
+          ถ้าต้องการลิฟต์หรือทางลาด ให้เพิ่มโหนดและเส้นเชื่อมชนิด
+          <code>elevator</code> หรือ <code>ramp</code> ใน <code>data/</code></p>`
         : '<p>โหนดปลายทางอาจยังไม่มีเส้นเชื่อมกับส่วนอื่นของกราฟ ลองตรวจข้อมูลด้วย <code>python tools/validate_data.py</code></p>'}
       </div>`;
-    state.map.renderRoute(null);
+    state.view.renderRoute(null);
     return;
   }
 
@@ -340,11 +343,8 @@ function renderRoute() {
     $('.step-title', li).textContent = steps[i].title;
     $('.step-detail', li).textContent = steps[i].detail;
     const focus = () => {
-      const node = state.graph.node(steps[i].nodeId);
-      if (node && node.building) state.map.setFloor(node.floor);
-      updateFloorButtons();
-      state.map.focusNode(steps[i].nodeId);
-      state.map.select(steps[i].nodeId);
+      state.view.focusNode(steps[i].nodeId);
+      state.view.select(steps[i].nodeId);
       $$('#result-body .step').forEach((x) => x.classList.remove('is-active'));
       li.classList.add('is-active');
     };
@@ -356,17 +356,17 @@ function renderRoute() {
 
   $$('#result-body .floor-chip').forEach((chip) => {
     chip.addEventListener('click', () => {
-      state.map.setFloor(Number(chip.dataset.floor));
+      state.view.setFloor(Number(chip.dataset.floor));
       updateFloorButtons();
     });
   });
 
-  // เปิดแผนที่ที่ชั้นของจุดเริ่มต้นเสมอ
-  if (startNode.building) state.map.setFloor(startNode.floor);
+  // เส้นทางที่อยู่ชั้นเดียวจะเน้นชั้นนั้น ถ้าข้ามชั้นให้แสดงทุกชั้นเพื่อเห็นทั้งเส้นทาง
+  state.view.setFloor(floors.length === 1 ? floors[0] : null);
   updateFloorButtons();
-  state.map.setEndpoints(startNode.id, goalNode.id);
-  state.map.renderRoute(route);
-  state.map.focusNode(startNode.id, 2.6);
+  state.view.setEndpoints(startNode.id, goalNode.id);
+  state.view.renderRoute(route);
+  state.view.focusNode(startNode.id, 2.6);
 }
 
 function calculateRoute() {
@@ -424,8 +424,9 @@ function showNodeDetail(node) {
 
   const degree = state.graph.neighbors(node.id).length;
   const facts = [
-    building ? ['อาคาร', building.name] : ['บริเวณ', 'พื้นที่กลางแจ้ง'],
-    building ? ['ชั้น', `ชั้น ${node.floor}`] : null,
+    building ? ['อาคาร', building.name] : ['บริเวณ', Directions.typeLabel(node.type)],
+    ['ชั้น', `ชั้น ${node.floor}`],
+    ['พิกัดในไฟล์', `x ${node.x}, y ${node.y}`],
     ['ประเภท', Directions.typeLabel(node.type)],
     ['รหัสโหนด', node.id],
     ['จำนวนทางเชื่อม', `${degree} เส้นทาง`],
@@ -440,8 +441,6 @@ function showNodeDetail(node) {
       <div>
         <h2 class="detail-name"></h2>
         <p class="detail-context"></p>
-        ${node.source ? `<span class="source-badge ${node.source.startsWith('ตารางเรียน') ? 'is-verified' : 'is-draft'}">${
-          node.source.startsWith('ตารางเรียน') ? '✓ ยืนยันจากตารางเรียน' : '⚠ ข้อมูลตัวอย่าง'}</span>` : ''}
       </div>
       <button type="button" class="icon-btn" id="detail-close" aria-label="ปิด">✕</button>
     </div>
@@ -467,55 +466,62 @@ function showNodeDetail(node) {
   $('#set-start', panel).addEventListener('click', () => {
     state.start = node;
     pickers.start.set(node);
-    state.map.setEndpoints(node.id, state.goal ? state.goal.id : null);
+    state.view.setEndpoints(node.id, state.goal ? state.goal.id : null);
     if (state.goal) calculateRoute();
   });
   $('#set-goal', panel).addEventListener('click', () => {
     state.goal = node;
     pickers.goal.set(node);
-    state.map.setEndpoints(state.start ? state.start.id : null, node.id);
+    state.view.setEndpoints(state.start ? state.start.id : null, node.id);
     if (state.start) calculateRoute();
     else showToast('เลือกจุดเริ่มต้นเพื่อคำนวณเส้นทาง');
   });
 }
 
 /* =============================================================
- * ตัวควบคุมแผนที่
+ * ตัวควบคุมภาพ 3 มิติ
  * ============================================================= */
 function updateFloorButtons() {
   $$('#floor-switch button').forEach((btn) => {
-    btn.classList.toggle('is-active', Number(btn.dataset.floor) === state.map.floor);
+    const value = btn.dataset.floor === 'all' ? null : Number(btn.dataset.floor);
+    btn.classList.toggle('is-active', value === state.view.floor);
   });
 }
 
+/**
+ * ปุ่มเลือกชั้น — "ทั้งหมด" คือแสดงทุกชั้นพร้อมกัน
+ * ส่วนการเลือกชั้นใดชั้นหนึ่งจะทำให้ชั้นอื่นจางลง (ไม่ได้ซ่อน) เพื่อยังเห็นบริบท
+ */
 function buildFloorSwitch() {
   const wrap = $('#floor-switch');
   wrap.innerHTML = '';
-  state.map.availableFloors().forEach((f) => {
+  const add = (value, text, title) => {
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.dataset.floor = f;
-    btn.textContent = f;
-    btn.title = `แสดงชั้น ${f}`;
+    btn.dataset.floor = value;
+    btn.textContent = text;
+    btn.title = title;
     btn.addEventListener('click', () => {
-      state.map.setFloor(f);
+      state.view.setFloor(value === 'all' ? null : Number(value));
       updateFloorButtons();
     });
     wrap.appendChild(btn);
-  });
+  };
+  add('all', 'ทั้งหมด', 'แสดงทุกชั้น');
+  state.view.availableFloors().forEach((f) => add(f, String(f), `เน้นชั้น ${f}`));
   updateFloorButtons();
 }
 
+/** สัญลักษณ์โหนด — สร้างจากประเภทที่มีจริงในไฟล์ข้อมูล */
 function buildLegend() {
   const wrap = $('#legend-items');
-  const shown = ['classroom', 'lab', 'computer_lab', 'teacher_room', 'office',
-    'library', 'toilet', 'health_room', 'canteen', 'meeting', 'activity',
-    'stairs', 'elevator', 'entrance', 'gate', 'sport', 'landmark'];
+  const shown = Object.keys(state.graph.statistics().byType);
   wrap.innerHTML = shown.map((t) => {
-    const s = TYPE_STYLE[t];
+    const s = TYPE_STYLE[t] || { color: '#94a3b8', glyph: '', label: t };
+    const count = state.graph.statistics().byType[t];
     return `<button type="button" class="legend-item is-on" data-type="${t}">
-      <span class="legend-dot" style="background:${s.color}">${s.glyph}</span>
-      <span>${s.label}</span></button>`;
+      <span class="legend-dot" style="background:${s.color}">${s.glyph || ''}</span>
+      <span>${s.label} (${count})</span></button>`;
   }).join('');
 
   const active = new Set(shown);
@@ -524,9 +530,25 @@ function buildLegend() {
       const t = btn.dataset.type;
       if (active.has(t)) active.delete(t); else active.add(t);
       btn.classList.toggle('is-on', active.has(t));
-      state.map.setTypeFilter(active.size === shown.length ? null : active);
+      state.view.setTypeFilter(active.size === shown.length ? null : active);
     });
   });
+
+  // สัญลักษณ์ของเส้นเชื่อมแต่ละชนิด (ดูอย่างเดียว ไม่ใช่ปุ่มกด)
+  const edgeTypes = [...new Set(state.graph.edges.map((e) => e.type))];
+  const EDGE_LABEL = {
+    corridor: 'ทางเดินในชั้น',
+    stairs_up: 'บันไดขึ้น',
+    stairs_down: 'บันไดลง',
+    bridge: 'ทางเชื่อมระหว่างอาคาร',
+    elevator: 'ลิฟต์',
+    ramp: 'ทางลาด',
+  };
+  $('#legend-edges').innerHTML = edgeTypes.map((t) => {
+    const s = EDGE_STYLE[t] || { color: '#94a3b8' };
+    return `<span class="legend-edge">
+      <i style="background:${s.color}"></i>${EDGE_LABEL[t] || t}</span>`;
+  }).join('');
 }
 
 /* =============================================================
@@ -602,32 +624,26 @@ async function main() {
     return;
   }
 
-  const extent = (state.meta && state.meta.extent) || [0, 0, 320, 232];
-  state.map = new SchoolMap($('#map'), {
+  state.view = new Graph3DView($('#scene'), {
     graph: state.graph,
     buildings: state.buildings,
     buildingsById: state.buildingsById,
-    areas: state.areas,
-    extent,
+    floorHeight: (state.meta && state.meta.floorHeight) || 4,
   });
-  state.map.onNodeClick = (node) => {
-    state.map.select(node.id);
+  state.view.onNodeClick = (node) => {
+    state.view.select(node.id);
     showNodeDetail(node);
   };
-  $('#map').addEventListener('building-click', (evt) => {
-    const b = evt.detail.building;
-    showToast(`${b.name} — ${b.floors.length} ชั้น · ${b.description}`);
-  });
 
   pickers = {
     start: new LocationPicker($('#picker-start'), (node) => {
       state.start = node;
-      state.map.setEndpoints(node ? node.id : null, state.goal ? state.goal.id : null);
+      state.view.setEndpoints(node ? node.id : null, state.goal ? state.goal.id : null);
       if (node && state.goal) calculateRoute();
     }),
     goal: new LocationPicker($('#picker-goal'), (node) => {
       state.goal = node;
-      state.map.setEndpoints(state.start ? state.start.id : null, node ? node.id : null);
+      state.view.setEndpoints(state.start ? state.start.id : null, node ? node.id : null);
       if (node && state.start) calculateRoute();
     }),
   };
@@ -646,7 +662,7 @@ async function main() {
     state.goal = start;
     pickers.start.set(goal);
     pickers.goal.set(start);
-    state.map.setEndpoints(goal ? goal.id : null, start ? start.id : null);
+    state.view.setEndpoints(goal ? goal.id : null, start ? start.id : null);
     if (state.start && state.goal) calculateRoute();
   });
 
@@ -668,8 +684,8 @@ async function main() {
   });
 
   $('#opt-show-edges').addEventListener('change', (evt) => {
-    state.map.setShowEdges(evt.target.checked);
-    state.map.renderRoute(state.route);
+    state.view.setShowEdges(evt.target.checked);
+    state.view.renderRoute(state.route);
   });
 
   $$('.nearest-btn').forEach((btn) => {
@@ -678,9 +694,28 @@ async function main() {
     });
   });
 
-  $('#zoom-in').addEventListener('click', () => state.map.zoomIn());
-  $('#zoom-out').addEventListener('click', () => state.map.zoomOut());
-  $('#zoom-fit').addEventListener('click', () => state.map.fit());
+  $('#zoom-in').addEventListener('click', () => state.view.zoomIn());
+  $('#zoom-out').addEventListener('click', () => state.view.zoomOut());
+  $('#zoom-fit').addEventListener('click', () => state.view.fit());
+
+  /* ---- ปุ่มสลับสถานะของภาพ 3 มิติ ---- */
+  const toggle = (id, apply) => {
+    const btn = $(id);
+    btn.addEventListener('click', () => {
+      const on = !btn.classList.contains('is-on');
+      btn.classList.toggle('is-on', on);
+      btn.setAttribute('aria-pressed', String(on));
+      apply(on);
+    });
+  };
+  toggle('#btn-spin', (on) => state.view.setAutoRotate(on));
+  toggle('#btn-grid', (on) => state.view.setShowGrid(on));
+  toggle('#btn-labels', (on) => state.view.setShowLabels(on));
+
+  $('#btn-reset').addEventListener('click', () => state.view.resetView());
+  $('#floor-gap').addEventListener('input', (evt) => {
+    state.view.setFloorGap(evt.target.value);
+  });
 
   $('#sheet-handle').addEventListener('click', () => {
     $('.sidebar').classList.toggle('is-expanded');
@@ -701,12 +736,12 @@ async function main() {
   document.body.classList.add('is-ready');
 
   if (!restoreFromHash()) {
-    // ตั้งค่าเริ่มต้นเป็นประตู 2 ซึ่งเป็นทางเข้าหลัก
-    const gate = state.graph.node('out-gate2');
-    if (gate) {
-      state.start = gate;
-      pickers.start.set(gate);
-      state.map.setEndpoints(gate.id, null);
+    // ตั้งค่าเริ่มต้นเป็นห้องแรกของอาคาร 1 ชั้น 1
+    const first = state.graph.node('b1-f1-r01') || [...state.graph.nodes.values()][0];
+    if (first) {
+      state.start = first;
+      pickers.start.set(first);
+      state.view.setEndpoints(first.id, null);
     }
   }
 }

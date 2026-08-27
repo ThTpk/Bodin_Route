@@ -21,11 +21,15 @@ import json
 import os
 import sys
 
+# คอนโซล Windows ใช้รหัสอักขระ cp874 ซึ่งพิมพ์ภาษาไทยบางตัวไม่ได้ จึงบังคับเป็น UTF-8
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA = os.path.join(ROOT, "data")
 
 VALID_EDGE_TYPES = {
-    "corridor", "outdoor", "room", "entrance", "ramp",
+    "corridor", "bridge", "outdoor", "room", "entrance", "ramp",
     "stairs_up", "stairs_down", "stairs", "elevator",
 }
 
@@ -79,8 +83,8 @@ def main():
         if n["id"] not in touched:
             warnings.append("โหนด %s (%s) ไม่มีเส้นเชื่อมเลย" % (n["id"], n["name"]))
 
-    # 4) ความเชื่อมต่อ (BFS จากประตู 2)
-    start = "out-gate2" if "out-gate2" in seen else (nodes[0]["id"] if nodes else None)
+    # 4) ความเชื่อมต่อ (BFS จากโหนดแรกของอาคาร 1)
+    start = "b1-f1-r01" if "b1-f1-r01" in seen else (nodes[0]["id"] if nodes else None)
     if start:
         q = collections.deque([start])
         vis = {start}

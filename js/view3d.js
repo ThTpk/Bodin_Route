@@ -1,0 +1,830 @@
+/*
+ * view3d.js — แสดงกราฟ (โหนด + เส้นเชื่อม) เป็นภาพ 3 มิติที่หมุนได้
+ * ---------------------------------------------------------------
+ * ไม่มีแผนที่ ไม่มีผังพื้น วาดเฉพาะสิ่งที่มีในไฟล์ข้อมูลเท่านั้น คือ
+ *   - โหนดจาก data/nodes.json  (x, y จากไฟล์ / z คำนวณจาก floor)
+ *   - เส้นเชื่อมจาก data/edges.json
+ *
+ * คณิตศาสตร์ที่ใช้
+ *   1) หมุนรอบแกน Z ด้วยมุม yaw   (ลากซ้าย-ขวา)
+ *   2) เอียงรอบแกน X ด้วยมุม pitch (ลากขึ้น-ลง)
+ *   3) ฉายภาพแบบเปอร์สเปกทีฟ  scale = focal / (dist + depth)
+ *   4) เรียงลำดับวาดจากไกลไปใกล้ (painter's algorithm) เพื่อให้ทับกันถูกต้อง
+ *
+ * ระยะระหว่างชั้นบนภาพถูกขยายให้มากกว่าความจริง เพื่อให้แยกชั้นได้ด้วยตา
+ * ค่านี้ใช้กับการวาดภาพอย่างเดียว ไม่กระทบการคำนวณเส้นทาง
+ */
+
+'use strict';
+
+/** สี สัญลักษณ์ และชื่อไทยของโหนดแต่ละประเภท */
+const TYPE_STYLE = {
+  classroom: { color: '#3b82f6', glyph: '🚪', label: 'ห้องเรียน' },
+  stairs:    { color: '#f59e0b', glyph: '🪜', label: 'บันได' },
+  bridge:    { color: '#22c55e', glyph: '🌉', label: 'ทางเชื่อมระหว่างอาคาร' },
+  elevator:  { color: '#a855f7', glyph: '🛗', label: 'ลิฟต์' },
+  corridor:  { color: '#94a3b8', glyph: '', label: 'ทางเดิน' },
+  junction:  { color: '#94a3b8', glyph: '', label: 'ทางแยก' },
+  entrance:  { color: '#10b981', glyph: '🚪', label: 'ทางเข้าอาคาร' },
+  gate:      { color: '#16a34a', glyph: '🚧', label: 'ประตู' },
+  toilet:    { color: '#0ea5e9', glyph: '🚻', label: 'ห้องน้ำ' },
+  office:    { color: '#ef4444', glyph: '🏢', label: 'ห้องสำนักงาน' },
+};
+
+/** สีและความหนาของเส้นเชื่อมแต่ละชนิด */
+const EDGE_STYLE = {
+  corridor:     { color: '#64748b', width: 1.6 },
+  stairs_up:    { color: '#f59e0b', width: 2.4 },
+  stairs_down:  { color: '#f59e0b', width: 2.4 },
+  stairs:       { color: '#f59e0b', width: 2.4 },
+  bridge:       { color: '#22c55e', width: 2.6 },
+  elevator:     { color: '#a855f7', width: 2.4 },
+};
+
+const DEFAULT_EDGE_STYLE = { color: '#94a3b8', width: 1.6 };
+
+/** โทนสีของฉาก แยกตามธีมสว่าง/มืดของระบบ */
+const THEMES = {
+  light: {
+    bgTop: '#f4f7fd', bgBottom: '#dbe3f2',
+    grid: 'rgba(30,58,138,.16)', gridStrong: 'rgba(30,58,138,.34)',
+    label: '#16203a', labelHalo: 'rgba(255,255,255,.9)',
+    dim: '#94a3b8', hud: 'rgba(22,32,58,.6)',
+  },
+  dark: {
+    bgTop: '#111a2c', bgBottom: '#070b14',
+    grid: 'rgba(148,183,255,.16)', gridStrong: 'rgba(148,183,255,.36)',
+    label: '#e8edf7', labelHalo: 'rgba(8,12,22,.85)',
+    dim: '#64748b', hud: 'rgba(232,237,247,.55)',
+  },
+};
+
+const ROUTE_COLOR = '#f97316';
+const SELECT_COLOR = '#facc15';
+
+const TAU = Math.PI * 2;
+const clamp = (v, lo, hi) => (v < lo ? lo : (v > hi ? hi : v));
+
+/** แปลงสี #rrggbb + ค่าความทึบ เป็น rgba() */
+function rgba(hex, alpha) {
+  const h = hex.replace('#', '');
+  const n = parseInt(h.length === 3 ? h.replace(/(.)/g, '$1$1') : h, 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`;
+}
+
+/** ชื่อสั้นสำหรับป้ายกำกับบนภาพ */
+function shortLabel(node) {
+  if (node.type === 'stairs') return node.name.replace(/^บันได\s*/, 'บันได ').replace(/\s*ชั้น\s*\d+$/, '');
+  if (node.type === 'bridge') return node.name.replace(/\s*\(.*\)$/, '');
+  return node.name.replace(/^ห้อง\s*/, '');
+}
+
+class Graph3DView {
+  /**
+   * @param {HTMLCanvasElement} canvas
+   * @param {object} deps { graph, buildings, buildingsById, floorHeight }
+   */
+  constructor(canvas, deps) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d');
+    this.graph = deps.graph;
+    this.buildingsById = deps.buildingsById || new Map();
+
+    this.nodes = [...this.graph.nodes.values()];
+    this.edges = this.graph.edges;
+
+    this.floors = [...new Set(this.nodes.map((n) => n.floor || 0))].sort((a, b) => a - b);
+    this.minFloor = this.floors[0] || 0;
+
+    /* ระยะระหว่างชั้นบนภาพ (หน่วยเดียวกับพิกัดในไฟล์) */
+    this.floorGap = 14;
+
+    /* กล้อง */
+    this.yaw = -0.62;
+    this.pitch = 0.62;
+    this.dist = 220;
+    this.target = { x: 0, y: 0, z: 0 };
+
+    /* สถานะการแสดงผล */
+    this.floor = null;            // null = แสดงทุกชั้น
+    this.typeFilter = null;       // null = แสดงทุกประเภท
+    this.showEdges = true;        // false = แสดงเฉพาะเส้นทางที่ค้นหา
+    this.showGrid = true;
+    this.showLabels = true;
+    this.autoRotate = false;
+
+    this.route = null;
+    this.routeEdges = new Set();
+    this.routeNodes = new Set();
+    this.startId = null;
+    this.goalId = null;
+    this.selectedId = null;
+    this.hoverId = null;
+
+    this.onNodeClick = null;
+
+    this._projected = new Map();
+    this._anim = null;
+    this._dirty = true;
+    this._time = 0;
+
+    this._theme = matchMedia('(prefers-color-scheme: dark)').matches ? THEMES.dark : THEMES.light;
+    matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+      this._theme = e.matches ? THEMES.dark : THEMES.light;
+      this.invalidate();
+    });
+
+    this.centerOnData();
+    this.bindEvents();
+    this.resize();
+    this.fit();
+    this._booted = true;
+
+    const loop = (t) => {
+      this._time = t || 0;
+      this.step();
+      requestAnimationFrame(loop);
+    };
+    requestAnimationFrame(loop);
+  }
+
+  /* =============================================================
+   * พิกัด 3 มิติของโหนด
+   * ============================================================= */
+  worldOf(node) {
+    return {
+      x: node.x,
+      y: node.y,
+      z: ((node.floor || this.minFloor) - this.minFloor) * this.floorGap,
+    };
+  }
+
+  bounds() {
+    const b = {
+      minX: Infinity, maxX: -Infinity,
+      minY: Infinity, maxY: -Infinity,
+      minZ: Infinity, maxZ: -Infinity,
+    };
+    this.nodes.forEach((n) => {
+      const p = this.worldOf(n);
+      b.minX = Math.min(b.minX, p.x); b.maxX = Math.max(b.maxX, p.x);
+      b.minY = Math.min(b.minY, p.y); b.maxY = Math.max(b.maxY, p.y);
+      b.minZ = Math.min(b.minZ, p.z); b.maxZ = Math.max(b.maxZ, p.z);
+    });
+    return b;
+  }
+
+  centerOnData() {
+    const b = this.bounds();
+    this.target = {
+      x: (b.minX + b.maxX) / 2,
+      y: (b.minY + b.maxY) / 2,
+      z: (b.minZ + b.maxZ) / 2,
+    };
+  }
+
+  /* =============================================================
+   * การฉายภาพ
+   * ============================================================= */
+  get focal() {
+    return Math.min(this.width, this.height) * 1.15;
+  }
+
+  /** หมุน + เอียง จุดในโลก ให้อยู่ในระบบพิกัดของกล้อง */
+  toCamera(p) {
+    const dx = p.x - this.target.x;
+    const dy = p.y - this.target.y;
+    const dz = p.z - this.target.z;
+    const cy = Math.cos(this.yaw);
+    const sy = Math.sin(this.yaw);
+    const x1 = dx * cy - dy * sy;
+    const y1 = dx * sy + dy * cy;
+    const cp = Math.cos(this.pitch);
+    const sp = Math.sin(this.pitch);
+    return {
+      x: x1,
+      depth: y1 * cp - dz * sp,
+      up: y1 * sp + dz * cp,
+    };
+  }
+
+  /** จุดในโลก -> พิกัดบนจอ (คืน null ถ้าอยู่หลังกล้อง) */
+  project(p) {
+    const c = this.toCamera(p);
+    const depth = this.dist + c.depth;
+    if (depth < 1) return null;
+    const s = this.focal / depth;
+    return {
+      sx: this.width / 2 + c.x * s,
+      sy: this.height / 2 - c.up * s,
+      depth,
+      scale: s,
+    };
+  }
+
+  /* =============================================================
+   * ขนาดพื้นที่วาด
+   * ============================================================= */
+  resize() {
+    // ถ้าก่อนหน้านี้แคนวาสยังไม่มีขนาดจริง (เช่น แท็บถูกซ่อนอยู่ตอนโหลด)
+    // เมื่อได้ขนาดจริงแล้วต้องจัดมุมมองให้พอดีจอใหม่อีกครั้ง
+    const wasUnsized = !(this.width > 2);
+    const rect = this.canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    this.width = Math.max(1, rect.width);
+    this.height = Math.max(1, rect.height);
+    this.canvas.width = Math.round(this.width * dpr);
+    this.canvas.height = Math.round(this.height * dpr);
+    this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (wasUnsized && this.width > 2 && this._booted) this.fit();
+    this.invalidate();
+  }
+
+  invalidate() {
+    this._dirty = true;
+  }
+
+  /* =============================================================
+   * จัดมุมมองให้เห็นทั้งกราฟพอดีจอ
+   * ============================================================= */
+  fit(margin = 0.86) {
+    this.centerOnData();
+    const halfW = (this.width / 2) * margin;
+    const halfH = (this.height / 2) * margin;
+    const focal = this.focal;
+    let need = 60;
+    this.nodes.forEach((n) => {
+      const c = this.toCamera(this.worldOf(n));
+      // แก้สมการ |x| * focal / (dist + depth) = halfW  หา dist ที่พอดีขอบจอ
+      need = Math.max(need,
+        (Math.abs(c.x) * focal) / halfW - c.depth,
+        (Math.abs(c.up) * focal) / halfH - c.depth);
+    });
+    this.dist = clamp(need, 40, 4000);
+    this.invalidate();
+  }
+
+  zoomIn() { this.dist = clamp(this.dist * 0.78, 40, 4000); this.invalidate(); }
+
+  zoomOut() { this.dist = clamp(this.dist * 1.28, 40, 4000); this.invalidate(); }
+
+  setFloorGap(gap) {
+    this.floorGap = clamp(Number(gap) || 0, 2, 40);
+    this.invalidate();
+  }
+
+  setAutoRotate(on) {
+    this.autoRotate = !!on;
+    this.invalidate();
+  }
+
+  setShowGrid(on) { this.showGrid = !!on; this.invalidate(); }
+
+  setShowLabels(on) { this.showLabels = !!on; this.invalidate(); }
+
+  resetView() {
+    this.yaw = -0.62;
+    this.pitch = 0.62;
+    this.fit();
+  }
+
+  /* =============================================================
+   * สถานะที่ควบคุมจากภายนอก
+   * ============================================================= */
+  availableFloors() { return this.floors.slice(); }
+
+  setFloor(floor) {
+    this.floor = (floor === null || floor === undefined) ? null : Number(floor);
+    this.invalidate();
+  }
+
+  setTypeFilter(set) {
+    this.typeFilter = set || null;
+    this.invalidate();
+  }
+
+  setShowEdges(on) {
+    this.showEdges = !!on;
+    this.invalidate();
+  }
+
+  setEndpoints(startId, goalId) {
+    this.startId = startId || null;
+    this.goalId = goalId || null;
+    this.invalidate();
+  }
+
+  select(id) {
+    this.selectedId = id || null;
+    this.invalidate();
+  }
+
+  renderRoute(route) {
+    this.route = route && route.found ? route : null;
+    this.routeEdges = new Set();
+    this.routeNodes = new Set();
+    if (this.route) {
+      this.route.path.forEach((id) => this.routeNodes.add(id));
+      (this.route.links || []).forEach((l) => this.routeEdges.add(l.edge.index));
+    }
+    this.invalidate();
+  }
+
+  /** เลื่อนกล้องไปที่โหนดแบบนุ่มนวล */
+  focusNode(id, zoom) {
+    const node = this.graph.node(id);
+    if (!node) return;
+    const to = this.worldOf(node);
+    const from = Object.assign({}, this.target);
+    const distFrom = this.dist;
+    const distTo = zoom ? clamp(this.dist / zoom, 40, 4000) : this.dist;
+    this._anim = { from, to, distFrom, distTo, t0: performance.now(), ms: 420 };
+    this.invalidate();
+  }
+
+  /* =============================================================
+   * ลูปวาดภาพ
+   * ============================================================= */
+  step() {
+    if (this._anim) {
+      const k = clamp((performance.now() - this._anim.t0) / this._anim.ms, 0, 1);
+      const e = k < 0.5 ? 2 * k * k : 1 - ((-2 * k + 2) ** 2) / 2;   // ease-in-out
+      const a = this._anim;
+      this.target = {
+        x: a.from.x + (a.to.x - a.from.x) * e,
+        y: a.from.y + (a.to.y - a.from.y) * e,
+        z: a.from.z + (a.to.z - a.from.z) * e,
+      };
+      this.dist = a.distFrom + (a.distTo - a.distFrom) * e;
+      if (k >= 1) this._anim = null;
+      this._dirty = true;
+    }
+    if (this.autoRotate) {
+      this.yaw = (this.yaw + 0.0035) % TAU;
+      this._dirty = true;
+    }
+    if (this.route) this._dirty = true;     // เส้นทางมีเส้นประวิ่ง จึงต้องวาดต่อเนื่อง
+    if (!this._dirty) return;
+    this._dirty = false;
+    this.draw();
+  }
+
+  /** โหนดนี้ถูกซ่อนด้วยตัวกรองประเภทหรือไม่ */
+  isHidden(node) {
+    return !!(this.typeFilter && !this.typeFilter.has(node.type));
+  }
+
+  /** ความทึบของโหนด/เส้น ตามชั้นที่เลือกและเส้นทางที่ค้นหา */
+  nodeAlpha(node) {
+    if (this.isHidden(node)) return 0;
+    if (this.routeNodes.has(node.id)) return 1;
+    let a = 1;
+    if (this.floor !== null && (node.floor || 0) !== this.floor) a *= 0.16;
+    if (this.route) a *= 0.4;
+    return a;
+  }
+
+  draw() {
+    const ctx = this.ctx;
+    const th = this._theme;
+    const w = this.width;
+    const h = this.height;
+
+    /* ---- พื้นหลัง ---- */
+    const g = ctx.createLinearGradient(0, 0, 0, h);
+    g.addColorStop(0, th.bgTop);
+    g.addColorStop(1, th.bgBottom);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, w, h);
+
+    /* ---- คำนวณตำแหน่งบนจอของทุกโหนดครั้งเดียวต่อเฟรม ---- */
+    this._projected.clear();
+    this.nodes.forEach((n) => {
+      const p = this.project(this.worldOf(n));
+      if (p) this._projected.set(n.id, p);
+    });
+
+    if (this.showGrid) this.drawFloorPlanes();
+    this.drawEdges();
+    this.drawNodes();
+    this.drawGizmo();
+  }
+
+  /* ---- ระนาบอ้างอิงของแต่ละชั้น ช่วยให้ตาจับความสูงได้ ---- */
+  drawFloorPlanes() {
+    const ctx = this.ctx;
+    const th = this._theme;
+    const b = this.bounds();
+    const pad = 8;
+    const x0 = b.minX - pad;
+    const x1 = b.maxX + pad;
+    const y0 = b.minY - pad;
+    const y1 = b.maxY + pad;
+
+    this.floors.forEach((f) => {
+      const z = (f - this.minFloor) * this.floorGap;
+      const active = this.floor === null || this.floor === f;
+      const corners = [
+        this.project({ x: x0, y: y0, z }),
+        this.project({ x: x1, y: y0, z }),
+        this.project({ x: x1, y: y1, z }),
+        this.project({ x: x0, y: y1, z }),
+      ];
+      if (corners.some((c) => !c)) return;
+
+      ctx.save();
+      ctx.strokeStyle = active ? th.gridStrong : th.grid;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      corners.forEach((c, i) => (i ? ctx.lineTo(c.sx, c.sy) : ctx.moveTo(c.sx, c.sy)));
+      ctx.closePath();
+      ctx.stroke();
+
+      // เส้นตารางภายใน ทุก 13 เมตร
+      ctx.strokeStyle = th.grid;
+      ctx.globalAlpha = active ? 0.55 : 0.25;
+      ctx.beginPath();
+      for (let x = x0; x <= x1 + 0.1; x += 13) {
+        const a = this.project({ x, y: y0, z });
+        const c = this.project({ x, y: y1, z });
+        if (a && c) { ctx.moveTo(a.sx, a.sy); ctx.lineTo(c.sx, c.sy); }
+      }
+      for (let y = y0; y <= y1 + 0.1; y += 13) {
+        const a = this.project({ x: x0, y, z });
+        const c = this.project({ x: x1, y, z });
+        if (a && c) { ctx.moveTo(a.sx, a.sy); ctx.lineTo(c.sx, c.sy); }
+      }
+      ctx.stroke();
+
+      // ป้ายบอกชั้นที่มุมระนาบ
+      const tag = corners[0];
+      ctx.globalAlpha = active ? 0.9 : 0.4;
+      ctx.fillStyle = th.hud;
+      ctx.font = '600 12px "IBM Plex Sans Thai", system-ui, sans-serif';
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(`ชั้น ${f}`, tag.sx - 8, tag.sy);
+      ctx.restore();
+    });
+  }
+
+  /* ---- เส้นเชื่อม ---- */
+  drawEdges() {
+    const ctx = this.ctx;
+    const list = [];
+
+    this.edges.forEach((e) => {
+      const a = this.graph.node(e.from);
+      const b = this.graph.node(e.to);
+      if (!a || !b) return;
+      const pa = this._projected.get(a.id);
+      const pb = this._projected.get(b.id);
+      if (!pa || !pb) return;
+
+      const onRoute = this.routeEdges.has(e.index);
+      if (!this.showEdges && !onRoute) return;
+      if (this.isHidden(a) || this.isHidden(b)) return;
+
+      let alpha = 1;
+      if (!onRoute) {
+        if (this.floor !== null) {
+          const onFloor = (a.floor || 0) === this.floor || (b.floor || 0) === this.floor;
+          if (!onFloor) alpha *= 0.12;
+        }
+        if (this.route) alpha *= 0.28;
+        else alpha *= 0.75;
+      }
+      list.push({ e, pa, pb, onRoute, alpha, depth: (pa.depth + pb.depth) / 2 });
+    });
+
+    // ไกลก่อน ใกล้ทีหลัง แล้วเส้นทางไว้บนสุดเสมอ
+    list.sort((p, q) => (p.onRoute === q.onRoute ? q.depth - p.depth : (p.onRoute ? 1 : -1)));
+
+    list.forEach((item) => {
+      const style = EDGE_STYLE[item.e.type] || DEFAULT_EDGE_STYLE;
+      ctx.save();
+      ctx.lineCap = 'round';
+      if (item.onRoute) {
+        ctx.strokeStyle = rgba(ROUTE_COLOR, 0.28);
+        ctx.lineWidth = 10;
+        ctx.beginPath();
+        ctx.moveTo(item.pa.sx, item.pa.sy);
+        ctx.lineTo(item.pb.sx, item.pb.sy);
+        ctx.stroke();
+
+        ctx.strokeStyle = ROUTE_COLOR;
+        ctx.lineWidth = 4;
+        ctx.setLineDash([12, 8]);
+        ctx.lineDashOffset = -(this._time / 45) % 20;
+      } else {
+        ctx.strokeStyle = rgba(style.color, item.alpha);
+        ctx.lineWidth = style.width;
+        if (item.e.type === 'bridge') ctx.setLineDash([7, 5]);
+      }
+      ctx.beginPath();
+      ctx.moveTo(item.pa.sx, item.pa.sy);
+      ctx.lineTo(item.pb.sx, item.pb.sy);
+      ctx.stroke();
+      ctx.restore();
+    });
+  }
+
+  /* ---- โหนด + ป้ายชื่อ ---- */
+  drawNodes() {
+    const ctx = this.ctx;
+    const th = this._theme;
+    const items = [];
+
+    this.nodes.forEach((n) => {
+      const p = this._projected.get(n.id);
+      if (!p) return;
+      const alpha = this.nodeAlpha(n);
+      if (alpha <= 0.01) return;
+      items.push({ node: n, p, alpha });
+    });
+    items.sort((a, b) => b.p.depth - a.p.depth);
+
+    const labels = [];
+
+    items.forEach(({ node, p, alpha }) => {
+      const style = TYPE_STYLE[node.type] || DEFAULT_EDGE_STYLE;
+      const isEnd = node.id === this.startId || node.id === this.goalId;
+      const isSel = node.id === this.selectedId;
+      const isHover = node.id === this.hoverId;
+      const onRoute = this.routeNodes.has(node.id);
+
+      let r = clamp(p.scale * 0.62, 2.4, 11);
+      if (node.type !== 'classroom') r *= 1.25;
+      if (isEnd) r *= 1.5;
+      if (isSel || isHover) r *= 1.35;
+
+      ctx.save();
+      ctx.globalAlpha = alpha;
+
+      if (onRoute) {
+        ctx.beginPath();
+        ctx.arc(p.sx, p.sy, r + 5, 0, TAU);
+        ctx.fillStyle = rgba(ROUTE_COLOR, 0.22);
+        ctx.fill();
+      }
+
+      ctx.beginPath();
+      ctx.arc(p.sx, p.sy, r, 0, TAU);
+      ctx.fillStyle = style.color;
+      ctx.fill();
+      ctx.lineWidth = isSel || isHover ? 2.6 : 1.4;
+      ctx.strokeStyle = isSel || isHover ? SELECT_COLOR : th.labelHalo;
+      ctx.stroke();
+      ctx.restore();
+
+      const forced = isEnd || isSel || isHover || (onRoute && node.type !== 'classroom');
+      if (this.showLabels && (forced || (r > 4.2 && alpha > 0.5))) {
+        labels.push({
+          text: shortLabel(node),
+          x: p.sx,
+          y: p.sy - r - 4,
+          depth: p.depth,
+          alpha: forced ? 1 : Math.min(1, alpha),
+          forced,
+          size: forced ? 13 : clamp(r * 1.15, 10, 13),
+        });
+      }
+
+      if (isEnd) {
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.beginPath();
+        ctx.arc(p.sx, p.sy, r + 7, 0, TAU);
+        ctx.strokeStyle = node.id === this.startId ? '#22c55e' : ROUTE_COLOR;
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        ctx.fillStyle = node.id === this.startId ? '#22c55e' : ROUTE_COLOR;
+        ctx.font = '700 11px "IBM Plex Sans Thai", system-ui, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(node.id === this.startId ? 'A' : 'B', p.sx, p.sy + r + 16);
+        ctx.restore();
+      }
+    });
+
+    this.drawLabels(labels);
+  }
+
+  /** วาดป้ายชื่อ โดยข้ามป้ายที่ทับกัน ยกเว้นป้ายสำคัญ */
+  drawLabels(labels) {
+    const ctx = this.ctx;
+    const th = this._theme;
+    labels.sort((a, b) => (a.forced === b.forced ? a.depth - b.depth : (a.forced ? -1 : 1)));
+    const used = [];
+
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    labels.forEach((l) => {
+      ctx.font = `600 ${l.size}px "IBM Plex Sans Thai", system-ui, sans-serif`;
+      const w = ctx.measureText(l.text).width + 8;
+      const box = { x0: l.x - w / 2, x1: l.x + w / 2, y0: l.y - l.size - 2, y1: l.y + 2 };
+      const hit = used.some((u) => !(box.x1 < u.x0 || box.x0 > u.x1 || box.y1 < u.y0 || box.y0 > u.y1));
+      if (hit && !l.forced) return;
+      used.push(box);
+
+      ctx.globalAlpha = l.alpha;
+      ctx.lineWidth = 3.4;
+      ctx.strokeStyle = th.labelHalo;
+      ctx.strokeText(l.text, l.x, l.y);
+      ctx.fillStyle = th.label;
+      ctx.fillText(l.text, l.x, l.y);
+    });
+    ctx.restore();
+  }
+
+  /* ---- ลูกศรบอกทิศของแกน X / Y / Z ที่มุมจอ ---- */
+  drawGizmo() {
+    const ctx = this.ctx;
+    const th = this._theme;
+    const ox = this.width - 52;
+    const oy = this.height - 52;
+    const len = 26;
+    const cy = Math.cos(this.yaw);
+    const sy = Math.sin(this.yaw);
+    const cp = Math.cos(this.pitch);
+    const sp = Math.sin(this.pitch);
+
+    const axis = (vx, vy, vz, color, name) => {
+      const x1 = vx * cy - vy * sy;
+      const y1 = vx * sy + vy * cy;
+      const up = y1 * sp + vz * cp;
+      const ex = ox + x1 * len;
+      const ey = oy - up * len;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(ox, oy);
+      ctx.lineTo(ex, ey);
+      ctx.stroke();
+      ctx.fillStyle = color;
+      ctx.font = '700 10px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(name, ox + x1 * (len + 9), oy - up * (len + 9));
+    };
+
+    ctx.save();
+    ctx.globalAlpha = 0.85;
+    axis(1, 0, 0, th.dim, 'X');
+    axis(0, 1, 0, th.dim, 'Y');
+    axis(0, 0, 1, '#f59e0b', 'ชั้น');
+    ctx.restore();
+  }
+
+  /* =============================================================
+   * การโต้ตอบด้วยเมาส์และการสัมผัส
+   * ============================================================= */
+  nodeAt(px, py) {
+    let best = null;
+    let bestDist = 18;
+    this._projected.forEach((p, id) => {
+      const node = this.graph.node(id);
+      if (!node || this.nodeAlpha(node) < 0.3) return;
+      const d = Math.hypot(p.sx - px, p.sy - py);
+      if (d < bestDist) { bestDist = d; best = node; }
+    });
+    return best;
+  }
+
+  panBy(dxPx, dyPx) {
+    // เลื่อนเป้ากล้องในระนาบที่ตั้งฉากกับทิศมอง
+    const k = (this.dist + 1) / this.focal;
+    const right = { x: Math.cos(this.yaw), y: Math.sin(this.yaw) };
+    const cp = Math.cos(this.pitch);
+    const up = { x: -Math.sin(this.yaw) * cp, y: Math.cos(this.yaw) * cp };
+    const upZ = Math.sin(this.pitch);
+    this.target.x -= (right.x * dxPx - up.x * dyPx) * k;
+    this.target.y -= (right.y * dxPx - up.y * dyPx) * k;
+    this.target.z += upZ * dyPx * k;
+    this.invalidate();
+  }
+
+  bindEvents() {
+    const canvas = this.canvas;
+    const pointers = new Map();
+    let mode = null;
+    let last = null;
+    let moved = 0;
+    let pinch = 0;
+
+    const pos = (evt) => {
+      const r = canvas.getBoundingClientRect();
+      return { x: evt.clientX - r.left, y: evt.clientY - r.top };
+    };
+
+    canvas.addEventListener('pointerdown', (evt) => {
+      canvas.setPointerCapture(evt.pointerId);
+      pointers.set(evt.pointerId, pos(evt));
+      moved = 0;
+      if (pointers.size === 2) {
+        const [a, b] = [...pointers.values()];
+        pinch = Math.hypot(a.x - b.x, a.y - b.y);
+        mode = 'pinch';
+      } else {
+        last = pos(evt);
+        mode = (evt.shiftKey || evt.button === 1 || evt.button === 2) ? 'pan' : 'rotate';
+      }
+      canvas.classList.add('is-dragging');
+      this._anim = null;
+    });
+
+    canvas.addEventListener('pointermove', (evt) => {
+      const p = pos(evt);
+      if (!pointers.has(evt.pointerId)) {
+        // ไม่ได้ลาก — ตรวจว่าชี้อยู่บนโหนดไหน
+        const node = this.nodeAt(p.x, p.y);
+        const id = node ? node.id : null;
+        if (id !== this.hoverId) {
+          this.hoverId = id;
+          canvas.style.cursor = id ? 'pointer' : '';
+          canvas.title = node ? `${node.name} — ${(TYPE_STYLE[node.type] || {}).label || node.type}` : '';
+          this.invalidate();
+        }
+        return;
+      }
+      pointers.set(evt.pointerId, p);
+
+      if (mode === 'pinch' && pointers.size === 2) {
+        const [a, b] = [...pointers.values()];
+        const d = Math.hypot(a.x - b.x, a.y - b.y);
+        if (pinch > 0 && d > 0) {
+          this.dist = clamp(this.dist * (pinch / d), 40, 4000);
+          this.invalidate();
+        }
+        pinch = d;
+        return;
+      }
+
+      const dx = p.x - last.x;
+      const dy = p.y - last.y;
+      last = p;
+      moved += Math.abs(dx) + Math.abs(dy);
+
+      if (mode === 'pan') {
+        this.panBy(dx, dy);
+      } else {
+        this.yaw = (this.yaw - dx * 0.008) % TAU;
+        this.pitch = clamp(this.pitch + dy * 0.006, 0.06, 1.52);
+        this.invalidate();
+      }
+    });
+
+    const end = (evt) => {
+      if (!pointers.has(evt.pointerId)) return;
+      const p = pointers.get(evt.pointerId);
+      pointers.delete(evt.pointerId);
+      if (pointers.size === 0) {
+        canvas.classList.remove('is-dragging');
+        if (moved < 5 && mode !== 'pinch') {
+          const node = this.nodeAt(p.x, p.y);
+          if (node && this.onNodeClick) this.onNodeClick(node);
+        }
+        mode = null;
+      } else if (pointers.size === 1) {
+        mode = 'rotate';
+        last = [...pointers.values()][0];
+      }
+    };
+    canvas.addEventListener('pointerup', end);
+    canvas.addEventListener('pointercancel', end);
+    canvas.addEventListener('contextmenu', (evt) => evt.preventDefault());
+
+    canvas.addEventListener('wheel', (evt) => {
+      evt.preventDefault();
+      this.dist = clamp(this.dist * Math.exp(evt.deltaY * 0.0012), 40, 4000);
+      this.invalidate();
+    }, { passive: false });
+
+    // ปุ่มลูกศรหมุนมุมมองด้วยคีย์บอร์ด
+    canvas.setAttribute('tabindex', '0');
+    canvas.addEventListener('keydown', (evt) => {
+      const step = evt.shiftKey ? 0.18 : 0.06;
+      if (evt.key === 'ArrowLeft') this.yaw -= step;
+      else if (evt.key === 'ArrowRight') this.yaw += step;
+      else if (evt.key === 'ArrowUp') this.pitch = clamp(this.pitch + step, 0.06, 1.52);
+      else if (evt.key === 'ArrowDown') this.pitch = clamp(this.pitch - step, 0.06, 1.52);
+      else if (evt.key === '+' || evt.key === '=') this.zoomIn();
+      else if (evt.key === '-') this.zoomOut();
+      else if (evt.key.toLowerCase() === 'f') this.fit();
+      else return;
+      evt.preventDefault();
+      this.invalidate();
+    });
+
+    if (window.ResizeObserver) {
+      new ResizeObserver(() => this.resize()).observe(canvas);
+    } else {
+      window.addEventListener('resize', () => this.resize());
+    }
+  }
+}
+
+window.Graph3DView = Graph3DView;
+window.TYPE_STYLE = TYPE_STYLE;
+window.EDGE_STYLE = EDGE_STYLE;
