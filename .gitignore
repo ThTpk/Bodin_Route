@@ -1,0 +1,21 @@
+# ระบบปฏิบัติการ
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# เครื่องมือแก้ไข
+.vscode/
+.idea/
+*.swp
+
+# ภาพต้นฉบับที่ใช้ทำผัง (มีลิขสิทธิ์ — ไม่ push ขึ้น GitHub)
+bodin isometric/
+
+# เอกสารอ้างอิงที่มีชื่อครูและข้อมูลภายใน (ไม่ควรเผยแพร่สาธารณะ)
+ref_data/

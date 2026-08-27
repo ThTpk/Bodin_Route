@@ -1,0 +1,955 @@
+/* =============================================================
+ * style.css — แผนที่นำทางภายในโรงเรียนบดินทรเดชา (สิงห์ สิงหเสนี)
+ * ============================================================= */
+
+:root {
+  --navy-900: #16255c;
+  --navy-800: #1e3a8a;
+  --navy-600: #2952c8;
+  --accent: #f59e0b;
+  --route: #f97316;
+
+  --bg: #eef2f8;
+  --surface: #ffffff;
+  --surface-2: #f6f8fc;
+  --border: #dde4ee;
+  --text: #16203a;
+  --text-muted: #64748b;
+  --shadow-sm: 0 1px 2px rgba(20, 34, 68, .07), 0 2px 8px rgba(20, 34, 68, .06);
+  --shadow-md: 0 6px 24px rgba(20, 34, 68, .12);
+  --radius: 14px;
+  --radius-sm: 9px;
+  --topbar-h: 62px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0d1424;
+    --surface: #161f34;
+    --surface-2: #1d2740;
+    --border: #2b3752;
+    --text: #e8edf7;
+    --text-muted: #93a2bd;
+    --navy-800: #3b62d6;
+    --navy-600: #4f7bef;
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, .4);
+    --shadow-md: 0 8px 30px rgba(0, 0, 0, .5);
+  }
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: 'IBM Plex Sans Thai', 'Noto Sans Thai', 'Sarabun', system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.6;
+  overflow: hidden;
+}
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px;
+  padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+code {
+  font-family: ui-monospace, 'SFMono-Regular', Consolas, monospace;
+  font-size: .88em;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 1px 5px;
+}
+
+/* ---------------------------- แถบบน ---------------------------- */
+.topbar {
+  height: var(--topbar-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 18px;
+  background: linear-gradient(102deg, var(--navy-900), var(--navy-800) 62%, var(--navy-600));
+  color: #fff;
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  z-index: 30;
+}
+
+.brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.brand-mark { font-size: 26px; line-height: 1; }
+.brand-text { min-width: 0; }
+.brand-text h1 {
+  margin: 0; font-size: 16px; font-weight: 600; letter-spacing: .1px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.brand-text p {
+  margin: 0; font-size: 12.5px; opacity: .78;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.topbar-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.topbar-actions .btn {
+  color: #fff;
+  border-color: rgba(255, 255, 255, .3);
+  background: rgba(255, 255, 255, .1);
+  text-decoration: none;
+}
+.topbar-actions .btn:hover { background: rgba(255, 255, 255, .2); }
+
+/* ---------------------------- ปุ่ม ---------------------------- */
+.btn {
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  padding: 8px 14px;
+  cursor: pointer;
+  transition: background .16s, border-color .16s, transform .1s;
+  white-space: nowrap;
+}
+.btn:hover { background: var(--surface-2); }
+.btn:active { transform: translateY(1px); }
+.btn-primary {
+  background: var(--navy-800);
+  border-color: var(--navy-800);
+  color: #fff;
+  font-weight: 600;
+}
+.btn-primary:hover { background: var(--navy-600); border-color: var(--navy-600); }
+.btn-block { width: 100%; padding: 11px; font-size: 15px; }
+
+.icon-btn {
+  font: inherit;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 8px;
+  width: 30px; height: 30px;
+  flex-shrink: 0;
+}
+.icon-btn:hover { background: var(--surface-2); color: var(--text); }
+
+/* ---------------------------- โครงหน้า ---------------------------- */
+.layout {
+  display: grid;
+  grid-template-columns: 392px 1fr;
+  height: calc(100% - var(--topbar-h));
+}
+
+.sidebar {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 14px 14px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--bg);
+  border-right: 1px solid var(--border);
+}
+.sheet-handle { display: none; }
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+  box-shadow: var(--shadow-sm);
+}
+.panel-title {
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: .2px;
+}
+
+.sidebar-foot {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.65;
+  color: var(--text-muted);
+  padding: 0 4px;
+}
+
+/* ---------------------------- ช่องเลือกสถานที่ ---------------------------- */
+.picker { position: relative; }
+.picker-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 5px;
+}
+.picker-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface-2);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0 8px 0 10px;
+  transition: border-color .16s, box-shadow .16s;
+}
+.picker-control:focus-within {
+  border-color: var(--navy-600);
+  box-shadow: 0 0 0 3px rgba(41, 82, 200, .15);
+}
+.picker-pin {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  display: grid; place-items: center;
+  font-size: 11px; font-weight: 700; color: #fff;
+  flex-shrink: 0;
+}
+.picker-pin--a { background: #16a34a; }
+.picker-pin--b { background: var(--route); }
+.picker-control input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: 14.5px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  padding: 10px 0;
+  outline: none;
+}
+.picker-clear {
+  border: 0; background: transparent; cursor: pointer;
+  color: var(--text-muted); font-size: 13px;
+  width: 24px; height: 24px; border-radius: 6px;
+  visibility: hidden;
+}
+.picker.has-value .picker-clear { visibility: visible; }
+.picker-clear:hover { background: var(--border); }
+
+.picker-list {
+  display: none;
+  position: absolute;
+  z-index: 20;
+  top: 100%;
+  left: 0; right: 0;
+  margin-top: 5px;
+  max-height: 306px;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  padding: 4px;
+}
+.picker.is-open .picker-list { display: block; }
+
+.picker-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: right;
+  font: inherit;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  padding: 7px 8px;
+  border-radius: 7px;
+  cursor: pointer;
+}
+.picker-item:hover, .picker-item.is-active { background: var(--surface-2); }
+.picker-glyph {
+  width: 30px; height: 30px;
+  border-radius: 8px;
+  display: grid; place-items: center;
+  font-size: 15px;
+  flex-shrink: 0;
+}
+.picker-text { display: flex; flex-direction: column; text-align: left; min-width: 0; }
+.picker-name { font-size: 14px; font-weight: 500; }
+.picker-context { font-size: 11.5px; color: var(--text-muted); }
+.picker-empty { padding: 14px; text-align: center; color: var(--text-muted); font-size: 13px; }
+
+.swap-btn {
+  display: block;
+  margin: 6px auto;
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 15px;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: transform .18s, color .18s;
+}
+.swap-btn:hover { color: var(--navy-600); transform: rotate(180deg); }
+
+/* ---------------------------- ตัวเลือก ---------------------------- */
+.options {
+  border: 0;
+  margin: 14px 0 12px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.segmented {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 4px;
+}
+.segmented label { cursor: pointer; }
+.segmented input { position: absolute; opacity: 0; pointer-events: none; }
+.segmented span {
+  display: block;
+  text-align: center;
+  padding: 7px 4px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  transition: background .16s, color .16s;
+}
+.segmented input:checked + span {
+  background: var(--surface);
+  color: var(--navy-600);
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
+}
+.segmented input:focus-visible + span { outline: 2px solid var(--navy-600); outline-offset: 1px; }
+
+.check {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  font-size: 13.5px;
+  cursor: pointer;
+  color: var(--text);
+}
+.check input { margin: 3px 0 0; accent-color: var(--navy-600); width: 16px; height: 16px; }
+
+.select-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 13.5px;
+  color: var(--text-muted);
+}
+.select-row select {
+  font: inherit;
+  font-size: 13px;
+  padding: 6px 8px;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+/* ---------------------------- ปุ่มหาจุดใกล้ที่สุด ---------------------------- */
+.quick-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 7px;
+}
+.nearest-btn {
+  font: inherit;
+  font-size: 13px;
+  padding: 9px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color .16s, background .16s;
+}
+.nearest-btn:hover { border-color: var(--navy-600); background: var(--surface); }
+
+/* ---------------------------- ผลลัพธ์เส้นทาง ---------------------------- */
+.route-summary { margin-bottom: 12px; }
+.route-headline {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 11px;
+}
+.route-arrow { color: var(--text-muted); }
+.route-from { color: #16a34a; }
+.route-to { color: var(--route); }
+
+.route-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 7px;
+}
+.metric {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 9px 8px;
+  text-align: center;
+}
+.metric-primary { background: rgba(249, 115, 22, .1); border-color: rgba(249, 115, 22, .35); }
+.metric-value { display: block; font-size: 15px; font-weight: 700; line-height: 1.35; }
+.metric-primary .metric-value { color: var(--route); }
+.metric-label { display: block; font-size: 11px; color: var(--text-muted); }
+
+.route-floors {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+}
+.route-floors-label { font-size: 12px; color: var(--text-muted); }
+.chip {
+  font: inherit;
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  cursor: pointer;
+}
+.chip:hover { border-color: var(--navy-600); color: var(--navy-600); }
+
+.route-stats {
+  margin-top: 10px;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  border-top: 1px dashed var(--border);
+  padding-top: 8px;
+  line-height: 1.55;
+}
+
+.steps { list-style: none; margin: 0; padding: 0; }
+.step {
+  display: grid;
+  grid-template-columns: 22px 32px 1fr auto;
+  align-items: start;
+  gap: 9px;
+  padding: 9px 6px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  position: relative;
+  outline: none;
+}
+.step + .step { border-top: 1px solid var(--border); }
+.step:hover, .step:focus-visible { background: var(--surface-2); }
+.step.is-active {
+  background: rgba(249, 115, 22, .12);
+  box-shadow: inset 3px 0 0 var(--route);
+}
+.step-index {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-align: center;
+  padding-top: 6px;
+}
+.step-icon {
+  width: 32px; height: 32px;
+  border-radius: 9px;
+  display: grid; place-items: center;
+  background: var(--surface-2);
+  color: var(--navy-600);
+  border: 1px solid var(--border);
+}
+.step-icon svg { width: 19px; height: 19px; }
+.step-icon.icon-start { background: rgba(22, 163, 74, .14); color: #16a34a; border-color: rgba(22, 163, 74, .3); }
+.step-icon.icon-finish { background: rgba(249, 115, 22, .14); color: var(--route); border-color: rgba(249, 115, 22, .35); }
+.step-icon.icon-stairs-up, .step-icon.icon-stairs-down, .step-icon.icon-elevator {
+  background: rgba(100, 116, 139, .16); color: #475569;
+}
+.step-body { display: flex; flex-direction: column; min-width: 0; }
+.step-title { font-size: 14px; font-weight: 500; line-height: 1.45; }
+.step-detail { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+.step-distance {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  padding-top: 4px;
+}
+
+/* ---------------------------- รายละเอียดสถานที่ ---------------------------- */
+.panel-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  margin-bottom: 11px;
+}
+.detail-glyph {
+  width: 42px; height: 42px;
+  border-radius: 12px;
+  display: grid; place-items: center;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+.panel-head > div { flex: 1; min-width: 0; }
+.detail-name { margin: 0; font-size: 16px; font-weight: 600; line-height: 1.4; }
+.detail-context { margin: 1px 0 0; font-size: 12.5px; color: var(--text-muted); }
+
+.source-badge {
+  display: inline-block;
+  margin-top: 5px;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: 999px;
+  padding: 2px 9px;
+  line-height: 1.6;
+}
+.source-badge.is-verified {
+  background: rgba(22, 163, 74, .13);
+  color: #15803d;
+  border: 1px solid rgba(22, 163, 74, .35);
+}
+.source-badge.is-draft {
+  background: rgba(245, 158, 11, .13);
+  color: #b45309;
+  border: 1px solid rgba(245, 158, 11, .4);
+}
+@media (prefers-color-scheme: dark) {
+  .source-badge.is-verified { color: #4ade80; }
+  .source-badge.is-draft { color: #fbbf24; }
+}
+
+.detail-photo {
+  width: 100%;
+  border-radius: var(--radius-sm);
+  display: block;
+  margin-bottom: 11px;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  background: var(--surface-2);
+}
+.detail-photo--empty {
+  display: grid;
+  place-content: center;
+  text-align: center;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  border: 1px dashed var(--border);
+  padding: 12px;
+  line-height: 1.7;
+}
+.detail-desc { margin: 0 0 11px; font-size: 13.5px; line-height: 1.65; }
+
+.detail-facts {
+  margin: 0 0 13px;
+  display: grid;
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.detail-facts > div {
+  display: grid;
+  grid-template-columns: 116px 1fr;
+  gap: 8px;
+  background: var(--surface);
+  padding: 7px 10px;
+}
+.detail-facts dt { font-size: 12.5px; color: var(--text-muted); margin: 0; }
+.detail-facts dd { font-size: 13px; margin: 0; word-break: break-word; }
+
+.detail-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+/* ---------------------------- แผนที่ ---------------------------- */
+.mapwrap {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 30% 20%, rgba(59, 130, 246, .07), transparent 55%),
+    var(--surface-2);
+}
+
+#map {
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: grab;
+  touch-action: none;
+}
+#map.is-dragging { cursor: grabbing; }
+
+.map-ground { fill: transparent; }
+
+.area-label {
+  font-size: 4.4px;
+  fill: #0f766e;
+  fill-opacity: .72;
+  font-weight: 600;
+  pointer-events: none;
+}
+.building { cursor: pointer; }
+.building:hover rect:first-child { fill-opacity: .3; }
+.building-label {
+  font-size: 6px;
+  font-weight: 700;
+  pointer-events: none;
+  paint-order: stroke;
+  stroke: rgba(255, 255, 255, .85);
+  stroke-width: 1.4px;
+  stroke-linejoin: round;
+}
+/* โหมดมืด: พื้นที่กลางแจ้งยังใช้สีอ่อนอยู่ จึงคงป้ายสีเข้มไว้เพื่อคอนทราสต์
+   ส่วนอาคารเพิ่มความทึบให้เห็นชัดขึ้นบนพื้นหลังเข้ม */
+@media (prefers-color-scheme: dark) {
+  /* พื้นที่กลางแจ้งยังใช้สีอ่อน จึงคงป้ายสีเข้มไว้เพื่อให้อ่านออก */
+  .building-label { stroke: rgba(13, 20, 36, .82); filter: brightness(1.5); }
+  .building rect:first-child { fill-opacity: .3; }
+  .building:hover rect:first-child { fill-opacity: .46; }
+}
+
+.graph-edge { stroke: #94a3b8; stroke-width: .38; stroke-opacity: .55; }
+.graph-edge.edge-outdoor { stroke: #10b981; stroke-opacity: .5; }
+.graph-edge.edge-room { stroke: #cbd5e1; stroke-dasharray: .8 .8; }
+
+.node { cursor: pointer; }
+.node-halo { fill: #fff; fill-opacity: .9; }
+@media (prefers-color-scheme: dark) { .node-halo { fill: #0d1424; fill-opacity: .82; } }
+.node-dot { stroke: #fff; stroke-width: .5; }
+.node-glyph { font-size: 2.6px; pointer-events: none; }
+.node-label {
+  font-size: 3.1px;
+  fill: var(--text);
+  text-anchor: middle;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .18s;
+  paint-order: stroke;
+  stroke: var(--surface-2);
+  stroke-width: .9px;
+  stroke-linejoin: round;
+}
+#map.zoomed-in .node-label { opacity: .95; }
+.node.is-selected .node-label, .node.is-on-route .node-label { opacity: 1; }
+
+.node:hover .node-dot { r: 3; }
+.node.is-on-route .node-dot { stroke: var(--route); stroke-width: .9; }
+.node.is-selected .node-halo { fill: var(--route); fill-opacity: .3; r: 5; }
+.node-structural { pointer-events: none; }
+
+.route-line {
+  stroke: var(--route);
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  fill: none;
+}
+.route-line.is-faded { stroke-opacity: .22; stroke-dasharray: 2 2; }
+.route-glow {
+  stroke: var(--route);
+  stroke-width: 4.6;
+  stroke-opacity: .2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+}
+.route-vertical {
+  fill: none;
+  stroke: var(--route);
+  stroke-width: 1.3;
+  stroke-dasharray: 1.6 1.4;
+}
+.route-vertical.is-faded { stroke-opacity: .25; }
+
+.endpoint .pin-body { fill: var(--route); stroke: #fff; stroke-width: .7; }
+.endpoint-start .pin-body { fill: #16a34a; }
+.endpoint.is-faded { opacity: .38; }
+.pin-text { font-size: 6px; font-weight: 700; fill: #fff; }
+
+/* ---------------------------- HUD บนแผนที่ ---------------------------- */
+.map-hud { position: absolute; z-index: 5; }
+.map-hud--left { left: 14px; top: 14px; }
+.map-hud--right { right: 14px; top: 14px; }
+
+.hud-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  padding: 7px;
+}
+.hud-title {
+  display: block;
+  font-size: 10.5px;
+  color: var(--text-muted);
+  text-align: center;
+  margin-bottom: 4px;
+  font-weight: 600;
+}
+.floor-switch { display: flex; flex-direction: column; gap: 3px; }
+.floor-switch button {
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  width: 34px; height: 30px;
+  border-radius: 7px;
+  border: 1px solid transparent;
+  background: var(--surface-2);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.floor-switch button:hover { border-color: var(--navy-600); }
+.floor-switch button.is-active {
+  background: var(--navy-800);
+  border-color: var(--navy-800);
+  color: #fff;
+}
+
+.hud-zoom { display: flex; flex-direction: column; gap: 3px; }
+.hud-zoom button {
+  font: inherit;
+  font-size: 15px;
+  width: 34px; height: 30px;
+  border-radius: 7px;
+  border: 0;
+  background: var(--surface-2);
+  color: var(--text);
+  cursor: pointer;
+}
+.hud-zoom button:hover { background: var(--border); }
+
+.legend {
+  position: absolute;
+  left: 14px;
+  bottom: 14px;
+  z-index: 5;
+  max-width: min(430px, calc(100% - 28px));
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  font-size: 12px;
+}
+.legend summary {
+  cursor: pointer;
+  padding: 8px 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  list-style: none;
+  user-select: none;
+}
+.legend summary::-webkit-details-marker { display: none; }
+.legend summary::before { content: '▾ '; }
+.legend:not([open]) summary::before { content: '▸ '; }
+.legend-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 0 10px 10px;
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font: inherit;
+  font-size: 11.5px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-muted);
+  border-radius: 999px;
+  padding: 3px 9px 3px 3px;
+  cursor: pointer;
+  opacity: .45;
+  transition: opacity .16s;
+}
+.legend-item.is-on { opacity: 1; color: var(--text); }
+.legend-dot {
+  width: 19px; height: 19px;
+  border-radius: 50%;
+  display: grid; place-items: center;
+  font-size: 10px;
+}
+
+.map-compass {
+  position: absolute;
+  right: 16px; bottom: 16px;
+  z-index: 4;
+  display: grid;
+  justify-items: center;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 700;
+  opacity: .8;
+  pointer-events: none;
+}
+.map-compass svg { width: 26px; height: 26px; }
+
+/* ---------------------------- แจ้งเตือน / กล่องข้อความ ---------------------------- */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 26px;
+  transform: translate(-50%, 20px);
+  z-index: 60;
+  background: var(--navy-900);
+  color: #fff;
+  font-size: 13.5px;
+  padding: 11px 18px;
+  border-radius: 999px;
+  box-shadow: var(--shadow-md);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .22s, transform .22s;
+  max-width: min(92vw, 520px);
+  text-align: center;
+}
+.toast.is-visible { opacity: 1; transform: translate(-50%, 0); }
+
+.notice {
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  font-size: 13.5px;
+  line-height: 1.65;
+}
+.notice p { margin: 5px 0 0; }
+.notice pre {
+  margin: 8px 0 0;
+  background: rgba(0, 0, 0, .06);
+  padding: 8px 10px;
+  border-radius: 6px;
+  overflow-x: auto;
+  font-size: 12.5px;
+}
+.notice-warn { background: rgba(245, 158, 11, .12); border: 1px solid rgba(245, 158, 11, .4); }
+.notice-error { background: rgba(220, 38, 38, .1); border: 1px solid rgba(220, 38, 38, .38); }
+
+.loader {
+  position: fixed;
+  inset: var(--topbar-h) 0 0;
+  z-index: 40;
+  display: grid;
+  place-content: center;
+  gap: 12px;
+  background: var(--bg);
+  color: var(--text-muted);
+  padding: 24px;
+  text-align: center;
+}
+.loader .notice { text-align: left; max-width: 560px; }
+
+.dialog {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  max-width: 620px;
+  width: calc(100vw - 36px);
+  padding: 24px;
+  box-shadow: var(--shadow-md);
+  line-height: 1.7;
+}
+.dialog::backdrop { background: rgba(11, 18, 34, .6); backdrop-filter: blur(2px); }
+.dialog h2 { margin: 0 0 10px; font-size: 20px; }
+.dialog h3 { margin: 20px 0 5px; font-size: 14.5px; color: var(--navy-600); }
+.dialog p, .dialog ul { margin: 0; font-size: 14px; }
+.dialog ul { padding-left: 20px; }
+.dialog li { margin-bottom: 5px; }
+.dialog-foot { margin-top: 22px; text-align: right; }
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin: 16px 0 4px;
+}
+.stat-grid > div {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 6px;
+  text-align: center;
+}
+.stat-grid span { display: block; font-size: 19px; font-weight: 700; color: var(--navy-600); }
+.stat-grid small { font-size: 11px; color: var(--text-muted); }
+
+/* ---------------------------- จอเล็ก ---------------------------- */
+@media (max-width: 900px) {
+  body { overflow: auto; }
+
+  .layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr;
+    position: relative;
+  }
+
+  .mapwrap { height: calc(100dvh - var(--topbar-h)); }
+
+  .sidebar {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    z-index: 25;
+    max-height: 82dvh;
+    height: auto;
+    border-right: 0;
+    border-top: 1px solid var(--border);
+    border-radius: 20px 20px 0 0;
+    background: var(--surface);
+    box-shadow: 0 -8px 30px rgba(15, 25, 50, .18);
+    padding: 4px 12px 20px;
+    transform: translateY(calc(100% - 168px));
+    transition: transform .3s cubic-bezier(.32, .72, 0, 1);
+  }
+  .sidebar.is-expanded { transform: translateY(0); }
+
+  .sheet-handle {
+    display: block;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    width: 100%;
+    height: 26px;
+    border: 0;
+    background: var(--surface);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .sheet-handle::after {
+    content: '';
+    display: block;
+    width: 42px; height: 4px;
+    margin: 9px auto;
+    border-radius: 999px;
+    background: var(--border);
+  }
+
+  .panel { box-shadow: none; }
+  .legend { display: none; }
+  .map-compass { bottom: 180px; }
+  .toast { bottom: 190px; }
+  .stat-grid { grid-template-columns: repeat(2, 1fr); }
+  .brand-text h1 { font-size: 14px; }
+  .topbar-actions .btn { padding: 7px 10px; font-size: 13px; }
+}
+
+@media (max-width: 520px) {
+  .brand-text p { display: none; }
+  .detail-actions, .route-metrics { grid-template-columns: 1fr; }
+  .route-metrics { grid-template-columns: repeat(3, 1fr); }
+  .metric-value { font-size: 13px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition-duration: .01ms !important; animation-duration: .01ms !important; }
+}

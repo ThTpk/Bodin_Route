@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>แก้ไขข้อมูลแผนที่ — โรงเรียนบดินทรเดชา (สิงห์ สิงหเสนี)</title>
+<meta name="description" content="เครื่องมือแก้ไขโหนดและเส้นเชื่อมของแผนที่นำทางภายในโรงเรียน แล้วส่งออกเป็นไฟล์ JSON">
+<meta name="theme-color" content="#1e3a8a">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/editor.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✏️</text></svg>">
+</head>
+<body class="editor-body">
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark" aria-hidden="true">✏️</span>
+    <div class="brand-text">
+      <h1>แก้ไขข้อมูลแผนที่</h1>
+      <p>โหนด เส้นเชื่อม และรายละเอียดสถานที่</p>
+    </div>
+  </div>
+  <nav class="topbar-actions">
+    <span class="dirty-flag" id="dirty-flag" hidden>มีการแก้ไขที่ยังไม่ได้ส่งออก</span>
+    <button type="button" class="btn btn-ghost" id="validate-btn">ตรวจสอบข้อมูล</button>
+    <button type="button" class="btn btn-ghost" id="export-btn">ส่งออก JSON</button>
+    <a class="btn btn-ghost" href="index.html">กลับไปหน้าแผนที่</a>
+  </nav>
+</header>
+
+<div id="loader" class="loader">กำลังโหลดข้อมูลแผนที่…</div>
+
+<main class="editor-layout">
+
+  <!-- ================= แผนที่ ================= -->
+  <div class="mapwrap">
+    <svg id="map" role="img" aria-label="แผนผังโรงเรียนสำหรับแก้ไขข้อมูล"></svg>
+
+    <div class="map-hud map-hud--left">
+      <div class="hud-card">
+        <span class="hud-title">ชั้น</span>
+        <div id="floor-switch" class="floor-switch"></div>
+      </div>
+    </div>
+
+    <div class="map-hud map-hud--right">
+      <div class="hud-card hud-zoom">
+        <button type="button" id="zoom-in" aria-label="ขยาย">＋</button>
+        <button type="button" id="zoom-out" aria-label="ย่อ">－</button>
+        <button type="button" id="zoom-fit" aria-label="พอดีหน้าจอ">⤢</button>
+      </div>
+    </div>
+
+    <div class="mode-bar" id="mode-bar">
+      <button type="button" class="mode-btn is-active" data-mode="select">🖱️ เลือก / แก้ไข</button>
+      <button type="button" class="mode-btn" data-mode="add-node">➕ เพิ่มโหนด (คลิกบนแผนที่)</button>
+      <button type="button" class="mode-btn" data-mode="add-edge">🔗 เชื่อมเส้น (คลิกโหนด 2 จุด)</button>
+    </div>
+
+    <p class="mode-hint" id="mode-hint"></p>
+  </div>
+
+  <!-- ================= แผงแก้ไข ================= -->
+  <aside class="editor-panel">
+    <div class="tabs" role="tablist">
+      <button type="button" class="tab is-active" data-tab="nodes" role="tab">โหนด <span class="tab-count" id="count-nodes">0</span></button>
+      <button type="button" class="tab" data-tab="edges" role="tab">เส้นเชื่อม <span class="tab-count" id="count-edges">0</span></button>
+      <button type="button" class="tab" data-tab="io" role="tab">นำเข้า / ส่งออก</button>
+    </div>
+
+    <!-- ---------- แท็บโหนด ---------- -->
+    <section class="tab-panel is-active" data-panel="nodes">
+      <div class="filters">
+        <input type="search" id="node-search" placeholder="ค้นหาชื่อหรือรหัสโหนด…">
+        <select id="node-filter-building"><option value="">ทุกอาคาร</option></select>
+        <select id="node-filter-type"><option value="">ทุกประเภท</option></select>
+      </div>
+      <div class="list" id="node-list"></div>
+      <div class="editor-form" id="node-form" hidden></div>
+    </section>
+
+    <!-- ---------- แท็บเส้นเชื่อม ---------- -->
+    <section class="tab-panel" data-panel="edges">
+      <div class="filters">
+        <input type="search" id="edge-search" placeholder="ค้นหาจากชื่อโหนดต้นทาง/ปลายทาง…">
+        <select id="edge-filter-type"><option value="">ทุกประเภท</option></select>
+      </div>
+      <p class="hint">
+        แสดงเฉพาะ 300 รายการแรกที่ตรงกับคำค้น ระยะทางคำนวณจากพิกัดโหนดให้อัตโนมัติ
+        แต่แก้เป็นค่าที่วัดจริงได้
+      </p>
+      <div class="list" id="edge-list"></div>
+      <div class="editor-form" id="edge-form" hidden></div>
+    </section>
+
+    <!-- ---------- แท็บนำเข้า/ส่งออก ---------- -->
+    <section class="tab-panel" data-panel="io">
+      <h3>ส่งออกไฟล์</h3>
+      <p class="hint">
+        ดาวน์โหลดแล้วนำไปวางทับไฟล์เดิมในโฟลเดอร์ <code>data/</code> ของโปรเจกต์
+        จากนั้น commit ขึ้น GitHub ระบบจะใช้ข้อมูลใหม่ทันที
+      </p>
+      <div class="io-buttons">
+        <button type="button" class="btn btn-primary" data-download="nodes">ดาวน์โหลด nodes.json</button>
+        <button type="button" class="btn btn-primary" data-download="edges">ดาวน์โหลด edges.json</button>
+        <button type="button" class="btn btn-ghost" data-download="buildings">ดาวน์โหลด buildings.json</button>
+      </div>
+
+      <h3>นำเข้าไฟล์</h3>
+      <p class="hint">เลือกไฟล์ JSON ที่แก้ไว้เพื่อโหลดกลับมาแก้ต่อ ระบบจะตรวจชนิดไฟล์ให้อัตโนมัติ</p>
+      <input type="file" id="import-file" accept="application/json,.json" multiple>
+
+      <h3>ข้อมูลที่บันทึกไว้ในเบราว์เซอร์</h3>
+      <p class="hint">
+        การแก้ไขจะถูกเก็บไว้ในเครื่องโดยอัตโนมัติ (localStorage) เพื่อไม่ให้หายเวลาปิดหน้าเว็บ
+        แต่ <strong>ไม่ได้แก้ไฟล์ในโปรเจกต์ให้</strong> ต้องส่งออกแล้วนำไปวางทับเอง
+      </p>
+      <div class="io-buttons">
+        <button type="button" class="btn btn-ghost" id="reset-btn">ล้างและโหลดข้อมูลต้นฉบับใหม่</button>
+      </div>
+
+      <h3>ผลการตรวจสอบ</h3>
+      <div id="validation-output" class="validation">ยังไม่ได้ตรวจสอบ กด "ตรวจสอบข้อมูล" ที่แถบด้านบน</div>
+    </section>
+  </aside>
+</main>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script src="js/graph.js"></script>
+<script src="js/directions.js"></script>
+<script src="js/map.js"></script>
+<script src="js/editor.js"></script>
+</body>
+</html>
