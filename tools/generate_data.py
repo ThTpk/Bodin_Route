@@ -42,7 +42,16 @@ SPEED = {
 
 FLOOR_HEIGHT = 3.8          # ความสูงต่อชั้น (เมตร)
 STAIR_RUN = 7.0             # ระยะเดินตามแนวราบของบันได 1 ช่วงชั้น
-STATION_GAP = 11.0          # ระยะห่างจุดแยกบนทางเดิน
+
+# ---- สัดส่วนของผังพื้น (เมตร) ----
+CORRIDOR_W = 3.2            # ความกว้างทางเดินกลางอาคาร
+STAIR_BLOCK = 7.5           # ความยาวของโถงบันไดที่หัวและท้ายอาคาร
+LIFT_BLOCK = 5.0            # ความกว้างของช่องลิฟต์ (ต่อจากโถงบันได)
+MAX_ROOM_W = 10.5          # ความกว้างห้องสูงสุด ถ้าเกินนี้จะแบ่งเป็นหลายห้อง
+DOOR_W = 1.6                # ความกว้างช่องประตูที่วาดบนผัง
+
+# อาคารที่มีลิฟต์ (ต้องสำรวจเพิ่มว่าอาคารอื่นมีหรือไม่)
+LIFT_BUILDINGS = {"bcp"}
 
 
 # ==================================================================
@@ -51,47 +60,47 @@ STATION_GAP = 11.0          # ระยะห่างจุดแยกบน�
 # rect = [x1, y1, x2, y2]   axis = แกนของทางเดินหลัก ('x' = แนวตะวันออก-ตะวันตก)
 BUILDINGS = [
     {
-        "id": "b5", "name": "อาคาร 5", "short": "อ.5",
+        "id": "b5", "name": "อาคาร 5", "short": "อ.5", "code": "5",
         "rect": [90, 12, 240, 30], "axis": "x", "floors": 4, "color": "#3b82f6",
         "desc": "อาคารเรียนของนักเรียนชั้น ม.1 ห้องเรียนประจำ ม.1/1-ม.1/15 อยู่ที่ชั้น 2-4 (ยืนยันจากตารางเรียน ภาคเรียนที่ 1/2569)",
     },
     {
-        "id": "b4", "name": "อาคาร 4", "short": "อ.4",
+        "id": "b4", "name": "อาคาร 4", "short": "อ.4", "code": "4",
         "rect": [258, 12, 276, 96], "axis": "y", "floors": 5, "color": "#6366f1",
         "desc": "อาคารกลุ่มสาระวิทยาศาสตร์ (ห้อง 4203, 4302, 4303, 4404) และห้องศิลปะที่ชั้น 1 (ห้อง 4109, 4110)",
     },
     {
-        "id": "b2", "name": "อาคาร 2", "short": "อ.2",
+        "id": "b2", "name": "อาคาร 2", "short": "อ.2", "code": "2",
         "rect": [108, 56, 244, 74], "axis": "x", "floors": 4, "color": "#0ea5e9",
         "desc": "อาคารเรียนกลุ่มสาระวิทยาศาสตร์และเทคโนโลยี มีห้องปฏิบัติการวิทยาศาสตร์",
     },
     {
-        "id": "b3", "name": "อาคาร 3", "short": "อ.3",
+        "id": "b3", "name": "อาคาร 3", "short": "อ.3", "code": "3",
         "rect": [258, 100, 276, 172], "axis": "y", "floors": 4, "color": "#14b8a6",
         "desc": "อาคารเรียนกลุ่มสาระคณิตศาสตร์ และมีห้องพระ 1 (ห้อง 3406) ที่ชั้น 4",
     },
     {
-        "id": "bwp", "name": "อาคารบดินทรพิพัฒน์", "short": "บดินทรพิพัฒน์",
+        "id": "bwp", "name": "อาคารบดินทรพิพัฒน์", "short": "บดินทรพิพัฒน์", "code": "พพ",
         "rect": [14, 56, 96, 74], "axis": "x", "floors": 4, "color": "#f59e0b",
         "desc": "อาคารกิจกรรม กลุ่มสาระศิลปะ ดนตรี นาฏศิลป์ และหอประชุม",
     },
     {
-        "id": "bad", "name": "อาคารอำนวยการ", "short": "อำนวยการ",
+        "id": "bad", "name": "อาคารอำนวยการ", "short": "อำนวยการ", "code": "อก",
         "rect": [104, 100, 168, 116], "axis": "x", "floors": 2, "color": "#ef4444",
         "desc": "อาคารสำนักงาน ห้องวิชาการ ชั้น 1 ห้องผู้อำนวยการ และกลุ่มบริหารต่าง ๆ",
     },
     {
-        "id": "b1", "name": "อาคาร 1", "short": "อ.1",
+        "id": "b1", "name": "อาคาร 1", "short": "อ.1", "code": "1",
         "rect": [186, 178, 312, 196], "axis": "x", "floors": 4, "color": "#2563eb",
         "desc": "อาคารเรียนหลักด้านหน้าโรงเรียน มีห้องเรียนโครงการ English Programme (ห้อง 1207, 1301, 1401) หันหน้าเข้าหาสนามบาสเกตบอลและเสาธง",
     },
     {
-        "id": "bcp", "name": "อาคารเฉลิมพระเกียรติ", "short": "เฉลิมพระเกียรติ",
+        "id": "bcp", "name": "อาคารเฉลิมพระเกียรติ", "short": "เฉลิมพระเกียรติ", "code": "ฉ",
         "rect": [14, 154, 92, 172], "axis": "x", "floors": 5, "color": "#a855f7",
         "desc": "อาคารเรียนรวม โรงอาหาร ห้องคอมพิวเตอร์ COM1-COM7 และห้องประชุมขนาดใหญ่",
     },
     {
-        "id": "b7", "name": "อาคาร 7", "short": "อ.7",
+        "id": "b7", "name": "อาคาร 7", "short": "อ.7", "code": "7",
         "rect": [14, 106, 96, 124], "axis": "x", "floors": 3, "color": "#65a30d",
         "desc": "อาคารปฏิบัติการกลุ่มสาระการงานอาชีพและศิลปะ "
                 "(ยืนยันจากรหัสห้อง 7207 และ 7302 ในตารางเรียน แต่ตำแหน่งบนผังยังไม่ได้ตรวจสอบ)",
@@ -339,17 +348,57 @@ def walk_time(distance, kind):
     return max(1, int(round(distance / SPEED[kind])))
 
 
+def fill_floor(defined, bd, floor, slots):
+    """เติมห้องตัวอย่างให้ครบจำนวนช่องบนผังพื้น
+
+    ผังพื้นแบ่งเป็นคอลัมน์ตามความยาวอาคาร คอลัมน์ละ 2 ห้อง ถ้าห้องที่รู้จริง
+    มีน้อยกว่าจำนวนช่อง จะเหลือช่องว่างบนแผนที่ จึงเติมห้องเรียนตามรหัสของ
+    อาคารนั้นให้เต็ม โดยกำกับที่มาเป็น TEMPLATE เพื่อให้แยกออกจากข้อมูลจริงได้
+
+    เลขห้องที่เติมจะข้ามเลขที่ถูกใช้ไปแล้วในชั้นนั้น
+    """
+    rooms = list(defined)
+    if len(rooms) >= slots:
+        return rooms
+
+    code = bd.get("code") or bd["id"]
+    prefix = "%s%d" % (code, floor)
+
+    used = set()
+    for item in rooms:
+        name = item[1]
+        if name.startswith("ห้อง " + prefix):
+            tail = name[len("ห้อง " + prefix):].strip()
+            if tail.isdigit():
+                used.add(int(tail))
+
+    number = 1
+    while len(rooms) < slots:
+        while number in used:
+            number += 1
+        used.add(number)
+        rooms.append(("classroom", "ห้อง %s%02d" % (prefix, number), "", TEMPLATE))
+        number += 1
+    return rooms
+
+
 class Builder(object):
     def __init__(self):
         self.nodes = []
         self.edges = []
         self._pos = {}
 
-    def node(self, nid, name, ntype, building, floor, x, y, desc="", source=None):
+    def node(self, nid, name, ntype, building, floor, x, y, desc="", source=None,
+             rect=None, door=None):
+        """เพิ่มโหนดหนึ่งจุด
+
+        rect  กรอบสี่เหลี่ยมของห้อง [x1, y1, x2, y2] ใช้วาดผังพื้น (ไม่ใส่ก็ได้)
+        door  ตำแหน่งประตูที่ติดกับทางเดิน [x, y] ใช้วาดช่องประตูบนผัง
+        """
         if nid in self._pos:
             raise ValueError("duplicate node id: " + nid)
         self._pos[nid] = (r2(x), r2(y))
-        self.nodes.append({
+        record = {
             "id": nid,
             "name": name,
             "type": ntype,
@@ -361,7 +410,12 @@ class Builder(object):
             "photo": "",
             "aliases": [],
             "source": source or TEMPLATE,
-        })
+        }
+        if rect:
+            record["rect"] = rect
+        if door:
+            record["door"] = door
+        self.nodes.append(record)
         return nid
 
     def link(self, a, b, kind, distance=None, time=None, bidirectional=True, note=""):
@@ -395,86 +449,137 @@ def build():
     for a, b in OUTDOOR_EDGES:
         B.link(a, b, "outdoor")
 
-    # ---------- อาคาร ----------
+    # ---------- อาคาร: สร้างเป็นผังพื้นจริง ----------
+    # ผังพื้นของแต่ละชั้นเรียงเป็น
+    #   โถงบันไดหัวอาคาร | ห้องแถวบน | ทางเดินกลาง | ห้องแถวล่าง | โถงบันไดท้ายอาคาร
+    # ห้องแบ่งเป็นคอลัมน์ตามความยาวอาคาร คอลัมน์ละ 2 ห้อง (บน 1 ล่าง 1)
     for bd in BUILDINGS:
         bid = bd["id"]
         x1, y1, x2, y2 = bd["rect"]
         axis = bd["axis"]
-        along_min, along_max = (x1, x2) if axis == "x" else (y1, y2)
-        cross_mid = (y1 + y2) / 2.0 if axis == "x" else (x1 + x2) / 2.0
-        half = ((y2 - y1) if axis == "x" else (x2 - x1)) / 2.0
-        offset = max(3.0, half - 1.5)
 
-        def place(along, cross, _axis=axis):
-            return (along, cross) if _axis == "x" else (cross, along)
+        # แปลงเป็นระบบ "ตามยาว (along) / ตามขวาง (cross)" เพื่อใช้โค้ดชุดเดียวกับทั้งสองแกน
+        if axis == "x":
+            along1, along2, cross1, cross2 = x1, x2, y1, y2
+        else:
+            along1, along2, cross1, cross2 = y1, y2, x1, x2
 
-        margin = 7.0
-        s_lo, s_hi = along_min + margin, along_max - margin
+        cross_mid = (cross1 + cross2) / 2.0
+        corr_lo = cross_mid - CORRIDOR_W / 2.0
+        corr_hi = cross_mid + CORRIDOR_W / 2.0
+
+        def place(a, c, _axis=axis):
+            """(ตามยาว, ตามขวาง) -> (x, y)"""
+            return (a, c) if _axis == "x" else (c, a)
+
+        def rect_of(a_lo, a_hi, c_lo, c_hi, _axis=axis):
+            """กรอบสี่เหลี่ยมในระบบ along/cross -> [x1, y1, x2, y2]"""
+            if _axis == "x":
+                return [r2(a_lo), r2(c_lo), r2(a_hi), r2(c_hi)]
+            return [r2(c_lo), r2(a_lo), r2(c_hi), r2(a_hi)]
+
+        has_lift = bid in LIFT_BUILDINGS
+        block_a = STAIR_BLOCK + (LIFT_BLOCK if has_lift else 0.0)
+        usable_lo = along1 + block_a
+        usable_hi = along2 - STAIR_BLOCK
+        # จำนวนคอลัมน์มาจากความยาวอาคารหารด้วยความกว้างห้องสูงสุด
+        # แต่ต้องไม่น้อยกว่าจำนวนห้องที่รู้จริงของชั้นที่มีห้องเยอะที่สุด
+        # ใช้ค่าเดียวกันทุกชั้นเพื่อให้ผนังห้องแต่ละชั้นตรงกัน
+        needed = 0
+        for floor in range(1, bd["floors"] + 1):
+            defined_count = len(ROOMS.get(bid, {}).get(floor, [])) + 2  # +2 คือห้องน้ำ
+            needed = max(needed, int(math.ceil(defined_count / 2.0)))
+        ncols = max(1, int((usable_hi - usable_lo) // MAX_ROOM_W), needed)
+        col_w = (usable_hi - usable_lo) / float(ncols)
+
         entrances = []
 
         for floor in range(1, bd["floors"] + 1):
-            rooms = list(ROOMS.get(bid, {}).get(floor, []))
-            rooms.append(("toilet", "ห้องน้ำชาย %s ชั้น %d" % (bd["short"], floor), ""))
-            rooms.append(("toilet", "ห้องน้ำหญิง %s ชั้น %d" % (bd["short"], floor), ""))
+            defined = list(ROOMS.get(bid, {}).get(floor, []))
+            defined.append(("toilet", "ห้องน้ำชาย %s ชั้น %d" % (bd["short"], floor), "", TEMPLATE))
+            defined.append(("toilet", "ห้องน้ำหญิง %s ชั้น %d" % (bd["short"], floor), "", TEMPLATE))
 
-            span = s_hi - s_lo
-            stations = max(2, int(math.ceil(len(rooms) / 2.0)))
-            if span / float(stations - 1) > STATION_GAP * 1.6:
-                stations = int(math.ceil(span / STATION_GAP)) + 1
-            step = span / float(stations - 1)
+            # เติมห้องให้เต็มผังพื้น เพื่อไม่ให้เหลือช่องว่างบนแผนที่
+            rooms = fill_floor(defined, bd, floor, ncols * 2)
 
+            # ---- ทางเดินกลาง: จุดแยกหนึ่งจุดต่อหนึ่งคอลัมน์ ----
             corridor_ids = []
-            for i in range(stations):
-                cx, cy = place(s_lo + i * step, cross_mid)
-                cid = "%s-f%d-c%d" % (bid, floor, i + 1)
-                B.node(cid, "ทางเดิน %s ชั้น %d จุดที่ %d" % (bd["short"], floor, i + 1),
+            for k in range(ncols):
+                cx, cy = place(usable_lo + (k + 0.5) * col_w, cross_mid)
+                cid = "%s-f%d-c%d" % (bid, floor, k + 1)
+                B.node(cid, "ทางเดิน %s ชั้น %d จุดที่ %d" % (bd["short"], floor, k + 1),
                        "corridor", bid, floor, cx, cy)
                 corridor_ids.append(cid)
-            for i in range(stations - 1):
-                B.link(corridor_ids[i], corridor_ids[i + 1], "corridor")
+            for k in range(ncols - 1):
+                B.link(corridor_ids[k], corridor_ids[k + 1], "corridor")
 
-            # บันได 2 ตัว หัว-ท้ายอาคาร
+            # ---- โถงบันไดหัว-ท้ายอาคาร ----
             floor_stairs = {}
-            for tag, along, near in (("A", along_min + 3.0, corridor_ids[0]),
-                                     ("B", along_max - 3.0, corridor_ids[-1])):
-                sx, sy = place(along, cross_mid)
+            stair_specs = (
+                ("A", along1, along1 + STAIR_BLOCK, corridor_ids[0]),
+                ("B", along2 - STAIR_BLOCK, along2, corridor_ids[-1]),
+            )
+            for tag, a_lo, a_hi, near in stair_specs:
+                sx, sy = place((a_lo + a_hi) / 2.0, cross_mid)
                 sid = "%s-f%d-stair%s" % (bid, floor, tag)
                 B.node(sid, "บันได %s %s ชั้น %d" % (tag, bd["short"], floor),
                        "stairs", bid, floor, sx, sy,
-                       "บันไดฝั่ง%sของ%s" % ("ต้น" if tag == "A" else "ท้าย", bd["name"]))
+                       "บันไดฝั่ง%sของ%s" % ("ต้น" if tag == "A" else "ท้าย", bd["name"]),
+                       rect=rect_of(a_lo, a_hi, cross1, cross2))
                 B.link(sid, near, "corridor")
                 floor_stairs[tag] = sid
-            index["%s-f%d" % (bid, floor)] = {"corridor": corridor_ids, "stairs": floor_stairs}
 
-            # ห้องต่าง ๆ
+            # ---- ช่องลิฟต์ (ต่อจากโถงบันไดฝั่ง A) ----
+            lift_id = None
+            if has_lift:
+                l_lo = along1 + STAIR_BLOCK
+                l_hi = l_lo + LIFT_BLOCK
+                lx, ly = place((l_lo + l_hi) / 2.0, cross_mid)
+                lift_id = "%s-f%d-lift" % (bid, floor)
+                B.node(lift_id, "ลิฟต์%s ชั้น %d" % (bd["name"], floor), "elevator",
+                       bid, floor, lx, ly,
+                       "ลิฟต์สำหรับผู้ที่เดินขึ้นบันไดไม่สะดวก",
+                       rect=rect_of(l_lo, l_hi, cross1, cross2))
+                B.link(lift_id, floor_stairs["A"], "corridor")
+                B.link(lift_id, corridor_ids[0], "corridor")
+
+            index["%s-f%d" % (bid, floor)] = {
+                "corridor": corridor_ids, "stairs": floor_stairs, "lift": lift_id,
+            }
+
+            # ---- ห้องต่าง ๆ: คอลัมน์ละ 2 ห้อง แถวบน (side 0) และแถวล่าง (side 1) ----
             for idx, item in enumerate(rooms):
                 kind, rname = item[0], item[1]
                 rdesc = item[2] if len(item) > 2 else ""
                 rsource = item[3] if len(item) > 3 else TEMPLATE
-                st = corridor_ids[min(idx // 2, stations - 1)]
-                sp = B.pos(st)
-                side = 1 if idx % 2 else -1
-                nudge = 2.5 if idx % 2 else -2.5
-                if axis == "x":
-                    rx, ry = sp[0] + nudge, sp[1] + side * offset
-                else:
-                    rx, ry = sp[0] + side * offset, sp[1] + nudge
-                rid = "%s-f%d-r%d" % (bid, floor, idx + 1)
-                B.node(rid, rname, kind, bid, floor, rx, ry, rdesc, rsource)
-                B.link(rid, st, "room")
 
-            # ทางเข้าอาคาร (เฉพาะชั้น 1)
+                col, side = idx // 2, idx % 2
+                a_lo = usable_lo + col * col_w
+                a_hi = a_lo + col_w
+                c_lo, c_hi = (cross1, corr_lo) if side == 0 else (corr_hi, cross2)
+
+                a_mid = (a_lo + a_hi) / 2.0
+                rx, ry = place(a_mid, (c_lo + c_hi) / 2.0)                 # กึ่งกลางห้อง
+                dx, dy = place(a_mid, corr_lo if side == 0 else corr_hi)   # ตำแหน่งประตู
+
+                rid = "%s-f%d-r%d" % (bid, floor, idx + 1)
+                B.node(rid, rname, kind, bid, floor, rx, ry, rdesc, rsource,
+                       rect=rect_of(a_lo, a_hi, c_lo, c_hi),
+                       door=[r2(dx), r2(dy)])
+                B.link(rid, corridor_ids[col], "room")
+
+            # ---- ทางเข้าอาคาร (เฉพาะชั้น 1) ----
             if floor == 1:
                 for tag in ("A", "B"):
-                    along = (along_min - 4.0) if tag == "A" else (along_max + 4.0)
-                    ex, ey = place(along, cross_mid)
+                    a = (along1 - 4.0) if tag == "A" else (along2 + 4.0)
+                    ex, ey = place(a, cross_mid)
                     eid = "%s-entrance%s" % (bid, tag)
                     B.node(eid, "ทางเข้า%s ฝั่ง %s" % (bd["name"], tag),
                            "entrance", bid, 1, ex, ey, "")
                     B.link(eid, floor_stairs[tag], "entrance")
                     entrances.append(eid)
 
-        # บันไดระหว่างชั้น (กราฟระบุทิศทาง: ขึ้นช้ากว่าลง)
+        # ---- บันไดระหว่างชั้น (มีทิศทาง: ขึ้นช้ากว่าลง) ----
         for floor in range(1, bd["floors"]):
             for tag in ("A", "B"):
                 lo = index["%s-f%d" % (bid, floor)]["stairs"][tag]
@@ -484,6 +589,14 @@ def build():
                        note="ขึ้นบันไดไปชั้น %d" % (floor + 1))
                 B.link(hi, lo, "stairs_down", distance=d, bidirectional=False,
                        note="ลงบันไดไปชั้น %d" % floor)
+
+        # ---- ลิฟต์ระหว่างชั้น ----
+        if has_lift:
+            for floor in range(1, bd["floors"]):
+                lo = index["%s-f%d" % (bid, floor)]["lift"]
+                hi = index["%s-f%d" % (bid, floor + 1)]["lift"]
+                B.link(lo, hi, "elevator", distance=FLOOR_HEIGHT, time=28,
+                       note="ลิฟต์ (รวมเวลารอโดยประมาณ)")
 
         bd["_entrances"] = entrances
 
@@ -520,21 +633,6 @@ def build():
     bridge("b1", "b3", 2, "ทางเชื่อมอาคาร 1 - อาคาร 3 ชั้น 2")
     bridge("bad", "b2", 2, "ทางเชื่อมอาคารอำนวยการ - อาคาร 2 ชั้น 2")
 
-    # ---------- ลิฟต์ อาคารเฉลิมพระเกียรติ ----------
-    prev = None
-    for floor in range(1, 6):
-        near = index["bcp-f%d" % floor]["corridor"][0]
-        p = B.pos(near)
-        eid = "bcp-f%d-lift" % floor
-        B.node(eid, "ลิฟต์อาคารเฉลิมพระเกียรติ ชั้น %d" % floor, "elevator",
-               "bcp", floor, p[0] + 4.0, p[1] + 3.0,
-               "ลิฟต์สำหรับผู้ที่เดินขึ้นบันไดไม่สะดวก")
-        B.link(eid, near, "corridor")
-        if prev:
-            B.link(prev, eid, "elevator", distance=FLOOR_HEIGHT, time=28,
-                   note="ลิฟต์ (รวมเวลารอโดยประมาณ)")
-        prev = eid
-
     return B
 
 
@@ -561,8 +659,10 @@ def main():
         },
         "buildings": [{
             "id": b["id"], "name": b["name"], "shortName": b["short"],
+            "code": b.get("code", ""),
             "floors": list(range(1, b["floors"] + 1)),
             "color": b["color"], "rect": b["rect"], "axis": b["axis"],
+            "corridorWidth": CORRIDOR_W,
             "description": b["desc"], "photo": "",
         } for b in BUILDINGS],
         "areas": [dict(a) for a in AREAS],

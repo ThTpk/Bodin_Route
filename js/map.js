@@ -1,49 +1,66 @@
 /*
- * map.js — วาดแผนที่โรงเรียนด้วย SVG พร้อมการเลื่อน/ซูม
+ * map.js — วาดแผนที่โรงเรียนด้วย SVG (ผังพื้นจริง + เลื่อน/ซูม)
  * ---------------------------------------------------------------
  * แผนที่เป็นผังมองจากด้านบน หน่วยพิกัดเป็นเมตร (1 หน่วย SVG = 1 เมตร)
- * แบ่งการวาดเป็นชั้น (layer) เพื่อควบคุมลำดับการซ้อนทับ
+ *
+ * ลำดับการวาดจากล่างขึ้นบน
+ *   ground    พื้นโรงเรียน
+ *   areas     สนาม ลานจอดรถ สวน สระว่ายน้ำ
+ *   paths     ทางเดินกลางแจ้ง (วาดจากเส้นเชื่อมชนิด outdoor)
+ *   shells    เงาอาคารทุกหลัง (อาคารที่ไม่มีชั้นที่เลือกอยู่จะเห็นแค่ชั้นนี้)
+ *   rooms     ผังพื้นของชั้นที่เลือก — ห้อง ผนัง ประตู บันได
+ *   edges     โครงสร้างกราฟ (เปิด/ปิดได้)
+ *   route     เส้นทางที่ค้นหา
+ *   nodes     ไอคอนและป้ายชื่อ
+ *   markers   หมุดต้นทาง/ปลายทาง
  */
 
 'use strict';
 
 const NS = 'http://www.w3.org/2000/svg';
 
-/** สี + สัญลักษณ์ประจำประเภทโหนด */
+/** ระยะขอบรอบผัง (เมตร) เพื่อไม่ให้อาคารริมสุดชิดขอบจอ */
+const MAP_PADDING = 16;
+
+/**
+ * สี สัญลักษณ์ และสีพื้นห้องของแต่ละประเภทโหนด
+ * roomFill ใช้เป็นสีพื้นห้องบนผังพื้น จึงเลือกโทนอ่อนเพื่อให้เส้นทางสีส้มเด่น
+ */
 const TYPE_STYLE = {
-  classroom:    { color: '#2563eb', glyph: '📘', label: 'ห้องเรียน' },
-  lab:          { color: '#0d9488', glyph: '🧪', label: 'ห้องปฏิบัติการ' },
-  computer_lab: { color: '#0891b2', glyph: '💻', label: 'ห้องคอมพิวเตอร์' },
-  teacher_room: { color: '#c2410c', glyph: '🧑‍🏫', label: 'ห้องพักครู' },
-  office:       { color: '#b91c1c', glyph: '🏢', label: 'ห้องสำนักงาน' },
-  library:      { color: '#7c3aed', glyph: '📚', label: 'ห้องสมุด' },
-  toilet:       { color: '#0284c7', glyph: '🚻', label: 'ห้องน้ำ' },
-  health_room:  { color: '#dc2626', glyph: '🏥', label: 'ห้องพยาบาล' },
-  canteen:      { color: '#ea580c', glyph: '🍽️', label: 'โรงอาหาร' },
-  shop:         { color: '#d97706', glyph: '🛒', label: 'ร้านค้า' },
-  meeting:      { color: '#9333ea', glyph: '🗣️', label: 'ห้องประชุม' },
-  activity:     { color: '#db2777', glyph: '🎭', label: 'ห้องกิจกรรม' },
-  stairs:       { color: '#64748b', glyph: '🪜', label: 'บันได' },
-  elevator:     { color: '#475569', glyph: '🛗', label: 'ลิฟต์' },
+  classroom:    { color: '#2563eb', glyph: '',    label: 'ห้องเรียน',       roomFill: 'room-plain' },
+  lab:          { color: '#0d9488', glyph: '🧪', label: 'ห้องปฏิบัติการ',  roomFill: 'room-lab' },
+  computer_lab: { color: '#0891b2', glyph: '💻', label: 'ห้องคอมพิวเตอร์', roomFill: 'room-lab' },
+  teacher_room: { color: '#c2410c', glyph: '🧑‍🏫', label: 'ห้องพักครู',   roomFill: 'room-staff' },
+  office:       { color: '#b91c1c', glyph: '🏢', label: 'ห้องสำนักงาน',    roomFill: 'room-staff' },
+  library:      { color: '#7c3aed', glyph: '📚', label: 'ห้องสมุด',        roomFill: 'room-special' },
+  toilet:       { color: '#0284c7', glyph: '🚻', label: 'ห้องน้ำ',         roomFill: 'room-toilet' },
+  health_room:  { color: '#dc2626', glyph: '🏥', label: 'ห้องพยาบาล',      roomFill: 'room-care' },
+  canteen:      { color: '#ea580c', glyph: '🍽️', label: 'โรงอาหาร',       roomFill: 'room-food' },
+  shop:         { color: '#d97706', glyph: '🛒', label: 'ร้านค้า',         roomFill: 'room-food' },
+  meeting:      { color: '#9333ea', glyph: '🗣️', label: 'ห้องประชุม',     roomFill: 'room-special' },
+  activity:     { color: '#db2777', glyph: '🎭', label: 'ห้องกิจกรรม',     roomFill: 'room-special' },
+  stairs:       { color: '#475569', glyph: '🪜', label: 'บันได',           roomFill: 'room-service' },
+  elevator:     { color: '#475569', glyph: '🛗', label: 'ลิฟต์',           roomFill: 'room-service' },
   entrance:     { color: '#059669', glyph: '🚪', label: 'ทางเข้าอาคาร' },
   gate:         { color: '#16a34a', glyph: '🚧', label: 'ประตูโรงเรียน' },
   landmark:     { color: '#eab308', glyph: '🚩', label: 'จุดสังเกต' },
   sport:        { color: '#059669', glyph: '🏃', label: 'สนามกีฬา' },
-  corridor:     { color: '#94a3b8', glyph: '', label: 'ทางเดิน' },
-  junction:     { color: '#94a3b8', glyph: '', label: 'ทางแยก' },
+  corridor:     { color: '#94a3b8', glyph: '',   label: 'ทางเดิน' },
+  junction:     { color: '#94a3b8', glyph: '',   label: 'ทางแยก' },
 };
 
-const AREA_STYLE = {
-  sport:   { fill: '#bbf7d0', stroke: '#4ade80' },
-  yard:    { fill: '#fef3c7', stroke: '#fcd34d' },
-  roof:    { fill: '#e0e7ff', stroke: '#a5b4fc' },
-  parking: { fill: '#e2e8f0', stroke: '#cbd5e1' },
-  green:   { fill: '#d1fae5', stroke: '#6ee7b7' },
-  pool:    { fill: '#bae6fd', stroke: '#38bdf8' },
+/** ชนิดพื้นที่กลางแจ้ง -> คลาส CSS */
+const AREA_CLASS = {
+  sport: 'area-sport',
+  yard: 'area-yard',
+  roof: 'area-roof',
+  parking: 'area-parking',
+  green: 'area-green',
+  pool: 'area-pool',
 };
 
-/* ระยะขอบรอบผัง (เมตร) เพื่อไม่ให้อาคารริมสุดชิดขอบจอ */
-const MAP_PADDING = 14;
+/** ประเภทที่เป็นโครงสร้างภายในของกราฟ ไม่ต้องมีไอคอน */
+const STRUCTURAL = new Set(['corridor', 'junction']);
 
 function el(tag, attrs = {}, parent = null) {
   const node = document.createElementNS(NS, tag);
@@ -54,10 +71,92 @@ function el(tag, attrs = {}, parent = null) {
   return node;
 }
 
+/**
+ * ย่อชื่อห้องให้พอดีกับกล่องบนผังพื้น
+ * กล่องห้องกว้างราว 11 เมตร ที่ขนาดตัวอักษรปกติจึงใส่ได้ราว 8 ตัวอักษร
+ */
+function shortLabel(node) {
+  const name = node.name;
+  switch (node.type) {
+    case 'stairs': {
+      const tag = name.match(/บันได\s*([AB])/);
+      return tag ? `บันได ${tag[1]}` : 'บันได';
+    }
+    case 'elevator': return 'ลิฟต์';
+    case 'toilet':
+      if (name.includes('ชาย')) return 'ห้องน้ำ ช';
+      if (name.includes('หญิง')) return 'ห้องน้ำ ญ';
+      return 'ห้องน้ำ';
+    case 'teacher_room': return 'พักครู';
+    case 'health_room': return 'พยาบาล';
+    case 'canteen': return 'โรงอาหาร';
+    case 'library': return 'ห้องสมุด';
+    case 'shop': return 'ร้านค้า';
+    default:
+      // ตัดคำนำหน้าที่ยาวและไม่ได้ช่วยแยกความต่างออก
+      return name
+        .replace(/^ห้องปฏิบัติการ\s*/, '')
+        .replace(/^ห้องกลุ่ม/, '')
+        .replace(/^ห้อง\s*/, '');
+  }
+}
+
+/** ความกว้างเฉลี่ยของอักษรไทยเทียบกับขนาดตัวอักษร ใช้ประมาณว่าข้อความยาวเท่าไร */
+const CHAR_RATIO = 0.58;
+
+/** ขนาดตัวอักษรที่ลองไล่จากใหญ่ไปเล็ก */
+const LABEL_SIZES = [2.7, 2.15, 1.75];
+
+/**
+ * จัดข้อความให้พอดีกล่องห้อง
+ * ลองไล่ขนาดตัวอักษรจากใหญ่ไปเล็ก ถ้าบรรทัดเดียวไม่พอก็ตัดเป็นสองบรรทัด
+ *
+ * @param {string} text
+ * @param {number} boxLen    ความยาวของกล่องตามแนวที่ข้อความวิ่ง (เมตร)
+ * @returns {{lines: string[], size: number}}
+ */
+function fitLabel(text, boxLen) {
+  const usable = boxLen * 0.9;
+  const width = (str, size) => str.length * size * CHAR_RATIO;
+
+  // 1) บรรทัดเดียว — ลดขนาดตัวอักษรลงจนกว่าจะพอดี
+  for (const size of LABEL_SIZES) {
+    if (width(text, size) <= usable) return { lines: [text], size };
+  }
+
+  // 2) สองบรรทัด — ตัดได้เฉพาะที่ช่องว่างเท่านั้น
+  //    ภาษาไทยไม่มีช่องว่างระหว่างคำ ถ้าตัดกลางคำจะอ่านไม่รู้เรื่อง
+  const cut = bestSpace(text);
+  if (cut > 0) {
+    const a = text.slice(0, cut).trim();
+    const b = text.slice(cut).trim();
+    const longest = a.length > b.length ? a : b;
+    for (const size of LABEL_SIZES) {
+      if (width(longest, size) <= usable) return { lines: [a, b], size };
+    }
+  }
+
+  // 3) ยังไม่พอ — ใช้ขนาดเล็กสุดแล้วตัดท้ายด้วย …
+  const size = LABEL_SIZES[LABEL_SIZES.length - 1];
+  const max = Math.max(2, Math.floor(usable / (size * CHAR_RATIO)));
+  return { lines: [text.length > max ? `${text.slice(0, max - 1)}…` : text], size };
+}
+
+/** ตำแหน่งช่องว่างที่ใกล้กึ่งกลางข้อความที่สุด คืน -1 ถ้าไม่มีช่องว่าง */
+function bestSpace(text) {
+  const mid = text.length / 2;
+  let best = -1;
+  for (let i = 1; i < text.length - 1; i += 1) {
+    if (text[i] !== ' ') continue;
+    if (best === -1 || Math.abs(i - mid) < Math.abs(best - mid)) best = i;
+  }
+  return best;
+}
+
 class SchoolMap {
   /**
    * @param {SVGElement} svg
-   * @param {object} deps  { graph, buildings, areas, extent }
+   * @param {object} deps  { graph, buildings, buildingsById, areas, extent }
    */
   constructor(svg, deps) {
     this.svg = svg;
@@ -69,13 +168,12 @@ class SchoolMap {
 
     this.floor = 1;
     this.showEdges = false;
-    this.showAllNodes = true;
     this.typeFilter = null;     // Set ของประเภทที่ต้องการแสดง (null = ทั้งหมด)
     this.route = null;
     this.selectedId = null;
     this.endpoints = { start: null, goal: null };
     this.onNodeClick = () => {};
-    this.onMapClick = null;   // (x, y) เป็นเมตรบนผัง — ใช้ในหน้าแก้ไขข้อมูล
+    this.onMapClick = null;     // (x, y) เป็นเมตรบนผัง — ใช้ในหน้าแก้ไขข้อมูล
 
     this.view = { k: 1, tx: 0, ty: 0 };
     this.nodeElements = new Map();
@@ -87,7 +185,9 @@ class SchoolMap {
     this.fit();
   }
 
-  /* ------------------------- โครงสร้าง SVG ------------------------- */
+  /* ==============================================================
+   * โครงสร้าง SVG
+   * ============================================================ */
   _setupSvg() {
     const [x0, y0, x1, y1] = this.extent;
     const pad = MAP_PADDING;
@@ -100,19 +200,28 @@ class SchoolMap {
     this.svg.innerHTML = '';
 
     const defs = el('defs', {}, this.svg);
-    const shadow = el('filter', { id: 'bldShadow', x: '-20%', y: '-20%', width: '150%', height: '150%' }, defs);
-    el('feDropShadow', { dx: 0.8, dy: 1.4, stdDeviation: 1.1, 'flood-opacity': 0.28 }, shadow);
 
-    const arrow = el('marker', {
-      id: 'routeArrow', viewBox: '0 0 10 10', refX: 8, refY: 5,
-      markerWidth: 4, markerHeight: 4, orient: 'auto-start-reverse',
+    const shadow = el('filter', {
+      id: 'bldShadow', x: '-25%', y: '-25%', width: '160%', height: '170%',
     }, defs);
-    el('path', { d: 'M 0 0 L 10 5 L 0 10 z', fill: '#f97316' }, arrow);
+    el('feDropShadow', {
+      dx: 0, dy: 1.6, stdDeviation: 1.6, 'flood-opacity': 0.22,
+    }, shadow);
+
+    // ลายเส้นทแยงสำหรับพื้นที่ที่ยังไม่ได้สำรวจ
+    const hatch = el('pattern', {
+      id: 'hatchPattern', width: 3, height: 3,
+      patternUnits: 'userSpaceOnUse', patternTransform: 'rotate(45)',
+    }, defs);
+    el('line', { x1: 0, y1: 0, x2: 0, y2: 3, class: 'hatch-line' }, hatch);
 
     this.viewport = el('g', { id: 'viewport' }, this.svg);
     this.layers = {
+      ground: el('g', { class: 'layer-ground' }, this.viewport),
       areas: el('g', { class: 'layer-areas' }, this.viewport),
-      buildings: el('g', { class: 'layer-buildings' }, this.viewport),
+      paths: el('g', { class: 'layer-paths' }, this.viewport),
+      shells: el('g', { class: 'layer-shells' }, this.viewport),
+      rooms: el('g', { class: 'layer-rooms' }, this.viewport),
       edges: el('g', { class: 'layer-edges' }, this.viewport),
       route: el('g', { class: 'layer-route' }, this.viewport),
       nodes: el('g', { class: 'layer-nodes' }, this.viewport),
@@ -120,7 +229,9 @@ class SchoolMap {
     };
   }
 
-  /* ------------------------- เลื่อน / ซูม ------------------------- */
+  /* ==============================================================
+   * เลื่อน / ซูม
+   * ============================================================ */
   _setupInteractions() {
     const svg = this.svg;
     const pointers = new Map();
@@ -161,8 +272,8 @@ class SchoolMap {
       if (pointers.size === 2 && pinchStart) {
         const [a, b] = [...pointers.values()];
         const dist = Math.hypot(a.x - b.x, a.y - b.y);
-        const scale = dist / (pinchStart.dist || 1);
-        this._zoomAt(pinchStart.center, (pinchStart.k * scale) / this.view.k);
+        this._zoomAt(pinchStart.center,
+          (pinchStart.k * (dist / (pinchStart.dist || 1))) / this.view.k);
         return;
       }
       if (!dragging || !last) return;
@@ -183,10 +294,10 @@ class SchoolMap {
         dragging = false;
         last = null;
         svg.classList.remove('is-dragging');
-        // ถือว่าเป็นการคลิกพื้นที่ว่างก็ต่อเมื่อเมาส์แทบไม่ขยับ (ไม่ใช่การลากแผนที่)
-        // และไม่ได้คลิกลงบนโหนด ซึ่งมีตัวจัดการของตัวเองอยู่แล้ว
-        const onNode = evt.target instanceof Element && evt.target.closest('.node');
-        if (wasDragging && moved < 4 && !onNode && this.onMapClick && evt.type === 'pointerup') {
+        // ถือว่าเป็นการคลิกพื้นที่ว่างก็ต่อเมื่อเมาส์แทบไม่ขยับ และไม่ได้คลิกลงบนโหนด/ห้อง
+        const target = evt.target instanceof Element ? evt.target : null;
+        const onFeature = target && target.closest('.node, .room');
+        if (wasDragging && moved < 4 && !onFeature && this.onMapClick && evt.type === 'pointerup') {
           const p = this.toMapCoords(evt);
           this.onMapClick(p.x, p.y, evt);
         }
@@ -198,8 +309,7 @@ class SchoolMap {
 
     svg.addEventListener('wheel', (evt) => {
       evt.preventDefault();
-      const factor = Math.exp(-evt.deltaY * 0.0016);
-      this._zoomAt(toLocal(evt), factor);
+      this._zoomAt(toLocal(evt), Math.exp(-evt.deltaY * 0.0016));
     }, { passive: false });
 
     svg.addEventListener('dblclick', (evt) => {
@@ -208,7 +318,7 @@ class SchoolMap {
   }
 
   _zoomAt(point, factor) {
-    const next = Math.min(14, Math.max(0.45, this.view.k * factor));
+    const next = Math.min(16, Math.max(0.45, this.view.k * factor));
     const ratio = next / this.view.k;
     this.view.tx = point.x - (point.x - this.view.tx) * ratio;
     this.view.ty = point.y - (point.y - this.view.ty) * ratio;
@@ -220,8 +330,9 @@ class SchoolMap {
     const { k, tx, ty } = this.view;
     this.viewport.setAttribute('transform', `translate(${tx} ${ty}) scale(${k})`);
     this.svg.style.setProperty('--map-scale', k);
-    this.svg.classList.toggle('zoomed-in', k > 2.1);
-    this.svg.classList.toggle('zoomed-far', k > 3.6);
+    this.svg.classList.toggle('zoom-1', k > 1.7);   // เริ่มเห็นเลขห้อง
+    this.svg.classList.toggle('zoom-2', k > 3.0);   // เห็นไอคอนและชื่อเต็ม
+    this.svg.classList.toggle('zoom-3', k > 5.0);   // เห็นรายละเอียดทั้งหมด
   }
 
   fit() {
@@ -249,49 +360,56 @@ class SchoolMap {
     return { x: Math.round(p.x * 100) / 100, y: Math.round(p.y * 100) / 100 };
   }
 
-  /** เปลี่ยนกราฟที่ใช้วาด โดยคงตำแหน่งการเลื่อน/ซูมเดิมไว้ (ใช้ในหน้าแก้ไขข้อมูล) */
-  setGraph(graph) {
-    this.graph = graph;
-    if (this.selectedId && !graph.node(this.selectedId)) this.selectedId = null;
-    this.renderNodes();
-    this.renderRoute(this.route && this.route.found
-      && this.route.path.every((id) => graph.node(id)) ? this.route : null);
-  }
-
   /** เลื่อนแผนที่ให้โหนดที่ระบุอยู่กลางจอ */
-  focusNode(id, zoom = 3.2) {
+  focusNode(id, zoom = 3.4) {
     const node = this.graph.node(id);
     if (!node) return;
     const vb = this.viewBox;
     const rect = this.svg.getBoundingClientRect();
-    // สัดส่วนของ viewBox ที่ถูก preserveAspectRatio จัดวางแบบ meet
     const base = Math.min(rect.width / vb.w, rect.height / vb.h);
-    const offsetX = (rect.width - vb.w * base) / 2;
-    const offsetY = (rect.height - vb.h * base) / 2;
-    const px = offsetX + (node.x - vb.x) * base;
-    const py = offsetY + (node.y - vb.y) * base;
+    const px = (rect.width - vb.w * base) / 2 + (node.x - vb.x) * base;
+    const py = (rect.height - vb.h * base) / 2 + (node.y - vb.y) * base;
     this.view.k = zoom;
     this.view.tx = rect.width / 2 - px * zoom;
     this.view.ty = rect.height / 2 - py * zoom;
     this._applyTransform();
   }
 
-  /* ------------------------- วาดฉากหลัง ------------------------- */
+  /* ==============================================================
+   * ฉากหลัง: พื้น พื้นที่กลางแจ้ง และทางเดิน
+   * ============================================================ */
   renderStatic() {
-    const [x0, y0, x1, y1] = this.extent;
+    const vb = this.viewBox;
     el('rect', {
-      x: x0, y: y0, width: x1 - x0, height: y1 - y0,
-      class: 'map-ground', rx: 2,
-    }, this.layers.areas);
+      x: vb.x, y: vb.y, width: vb.w, height: vb.h, class: 'map-ground',
+    }, this.layers.ground);
 
+    // ---- พื้นที่กลางแจ้ง ----
     this.areas.forEach((area) => {
       const [ax, ay, bx, by] = area.rect;
-      const style = AREA_STYLE[area.kind] || AREA_STYLE.green;
-      const g = el('g', { class: 'area' }, this.layers.areas);
+      const g = el('g', { class: `area ${AREA_CLASS[area.kind] || 'area-green'}` }, this.layers.areas);
       el('rect', {
-        x: ax, y: ay, width: bx - ax, height: by - ay, rx: 2,
-        fill: style.fill, stroke: style.stroke, 'stroke-width': 0.5,
+        x: ax, y: ay, width: bx - ax, height: by - ay, rx: 2, class: 'area-shape',
       }, g);
+
+      // เส้นสนามให้ดูเหมือนสนามกีฬาจริง
+      if (area.kind === 'sport') {
+        const cx = (ax + bx) / 2;
+        const cy = (ay + by) / 2;
+        el('rect', {
+          x: ax + 3, y: ay + 3, width: bx - ax - 6, height: by - ay - 6,
+          class: 'area-line', rx: 1,
+        }, g);
+        el('circle', { cx, cy, r: Math.min(bx - ax, by - ay) * 0.16, class: 'area-line' }, g);
+        el('line', {
+          x1: (bx - ax) > (by - ay) ? cx : ax + 3,
+          y1: (bx - ax) > (by - ay) ? ay + 3 : cy,
+          x2: (bx - ax) > (by - ay) ? cx : bx - 3,
+          y2: (bx - ax) > (by - ay) ? by - 3 : cy,
+          class: 'area-line',
+        }, g);
+      }
+
       const t = el('text', {
         x: (ax + bx) / 2, y: (ay + by) / 2, class: 'area-label',
         'text-anchor': 'middle', 'dominant-baseline': 'middle',
@@ -299,41 +417,214 @@ class SchoolMap {
       t.textContent = area.name;
     });
 
-    this.buildingElements = new Map();
-    this.buildings.forEach((b) => {
-      const [ax, ay, bx, by] = b.rect;
-      const g = el('g', { class: 'building', 'data-building': b.id }, this.layers.buildings);
-      el('rect', {
-        x: ax, y: ay, width: bx - ax, height: by - ay, rx: 1.5,
-        fill: b.color, 'fill-opacity': 0.16, stroke: b.color,
-        'stroke-width': 0.7, filter: 'url(#bldShadow)',
-      }, g);
-      // แถบทางเดินกลางอาคาร
-      if (b.axis === 'x') {
-        el('rect', {
-          x: ax + 1, y: (ay + by) / 2 - 1.6, width: bx - ax - 2, height: 3.2,
-          fill: b.color, 'fill-opacity': 0.22,
-        }, g);
-      } else {
-        el('rect', {
-          x: (ax + bx) / 2 - 1.6, y: ay + 1, width: 3.2, height: by - ay - 2,
-          fill: b.color, 'fill-opacity': 0.22,
-        }, g);
-      }
-      const label = el('text', {
-        x: (ax + bx) / 2, y: (ay + by) / 2, class: 'building-label',
-        'text-anchor': 'middle', 'dominant-baseline': 'middle', fill: b.color,
-      }, g);
-      label.textContent = b.shortName || b.name;
-      g.addEventListener('click', () => {
-        const detail = { building: b };
-        this.svg.dispatchEvent(new CustomEvent('building-click', { detail }));
-      });
-      this.buildingElements.set(b.id, g);
+    // ---- ทางเดินกลางแจ้ง: วาดจากเส้นเชื่อมชนิด outdoor ----
+    const walk = el('g', { class: 'walkways' }, this.layers.paths);
+    const drawn = new Set();
+    this.graph.edges.forEach((e) => {
+      if (e.type !== 'outdoor') return;
+      const a = this.graph.node(e.from);
+      const b = this.graph.node(e.to);
+      if (!a || !b) return;
+      const key = [e.from, e.to].sort().join('|');
+      if (drawn.has(key)) return;
+      drawn.add(key);
+      el('line', { x1: a.x, y1: a.y, x2: b.x, y2: b.y, class: 'walkway-base' }, walk);
+    });
+    this.graph.edges.forEach((e) => {
+      if (e.type !== 'outdoor') return;
+      const a = this.graph.node(e.from);
+      const b = this.graph.node(e.to);
+      if (!a || !b) return;
+      el('line', { x1: a.x, y1: a.y, x2: b.x, y2: b.y, class: 'walkway-top' }, walk);
     });
   }
 
-  /* ------------------------- โหนด + เส้นเชื่อม ------------------------- */
+  /* ==============================================================
+   * ผังพื้นของชั้นที่เลือก
+   * ============================================================ */
+  _renderFloorPlan() {
+    const shells = this.layers.shells;
+    const rooms = this.layers.rooms;
+    shells.innerHTML = '';
+    rooms.innerHTML = '';
+
+    // จัดกลุ่มโหนดที่มีรูปทรงห้อง ตามอาคาร (เฉพาะชั้นที่เลือก)
+    const byBuilding = new Map();
+    this.graph.nodes.forEach((n) => {
+      if (!n.rect || n.building === null || n.floor !== this.floor) return;
+      if (!byBuilding.has(n.building)) byBuilding.set(n.building, []);
+      byBuilding.get(n.building).push(n);
+    });
+
+    this.buildings.forEach((b) => {
+      const [ax, ay, bx, by] = b.rect;
+      const hasFloor = b.floors.includes(this.floor);
+      const g = el('g', {
+        class: `building${hasFloor ? ' has-floor' : ' is-shell'}`,
+        'data-building': b.id,
+      }, shells);
+
+      // เปลือกอาคาร
+      el('rect', {
+        x: ax, y: ay, width: bx - ax, height: by - ay, rx: 1,
+        class: 'building-shell', filter: 'url(#bldShadow)',
+        style: `--bld-color:${b.color}`,
+      }, g);
+
+      if (!hasFloor) {
+        // อาคารที่ไม่มีชั้นนี้ — แสดงแค่ชื่อไว้อ้างอิงตำแหน่ง
+        const label = el('text', {
+          x: (ax + bx) / 2, y: (ay + by) / 2, class: 'building-label is-muted',
+          'text-anchor': 'middle', 'dominant-baseline': 'middle',
+        }, g);
+        label.textContent = b.shortName || b.name;
+        g.addEventListener('click', () => {
+          this.svg.dispatchEvent(new CustomEvent('building-click', { detail: { building: b } }));
+        });
+        return;
+      }
+
+      // ทางเดินกลางอาคาร
+      const cw = b.corridorWidth || 3.2;
+      if (b.axis === 'x') {
+        el('rect', {
+          x: ax, y: (ay + by) / 2 - cw / 2, width: bx - ax, height: cw,
+          class: 'corridor-band',
+        }, g);
+      } else {
+        el('rect', {
+          x: (ax + bx) / 2 - cw / 2, y: ay, width: cw, height: by - ay,
+          class: 'corridor-band',
+        }, g);
+      }
+
+      g.addEventListener('click', (evt) => {
+        if (evt.target.closest('.room')) return;
+        this.svg.dispatchEvent(new CustomEvent('building-click', { detail: { building: b } }));
+      });
+
+      // ---- ห้องแต่ละห้อง ----
+      const list = byBuilding.get(b.id) || [];
+      list.forEach((n) => {
+        const [rx, ry, rx2, ry2] = n.rect;
+        const w = rx2 - rx;
+        const h = ry2 - ry;
+        const style = TYPE_STYLE[n.type] || {};
+        const cls = style.roomFill || 'room-plain';
+        const rg = el('g', {
+          class: `room room-${n.type} ${cls}`,
+          'data-id': n.id,
+        }, rooms);
+
+        el('rect', { x: rx, y: ry, width: w, height: h, class: 'room-shape' }, rg);
+
+        if (n.type === 'stairs') this._drawStairTreads(rg, n.rect, b.axis);
+        if (n.type === 'elevator') this._drawLiftMark(rg, n.rect);
+
+        // ช่องประตูที่ติดทางเดิน — วาดทับเส้นผนังให้ดูเป็นช่องเปิด
+        if (n.door) {
+          const [dx, dy] = n.door;
+          const horizontal = b.axis === 'x';
+          el('line', {
+            x1: horizontal ? dx - 0.8 : dx,
+            y1: horizontal ? dy : dy - 0.8,
+            x2: horizontal ? dx + 0.8 : dx,
+            y2: horizontal ? dy : dy + 0.8,
+            class: 'room-door',
+          }, rg);
+        }
+
+        this._drawRoomLabel(rg, n, style);
+
+        rg.addEventListener('click', (evt) => {
+          evt.stopPropagation();
+          this.onNodeClick(n);
+        });
+      });
+
+      // ชื่ออาคารลอยอยู่เหนือหลังคา อ่านได้ตอนซูมออก
+      const tag = el('text', {
+        x: (ax + bx) / 2, y: ay - 2.5, class: 'building-tag',
+        'text-anchor': 'middle',
+      }, g);
+      tag.textContent = b.shortName || b.name;
+    });
+  }
+
+  /**
+   * ป้ายชื่อห้องบนผังพื้น จัดขนาดและตัดบรรทัดให้พอดีกล่องห้อง
+   */
+  _drawRoomLabel(parent, node, style) {
+    const [rx, ry, rx2, ry2] = node.rect;
+    const w = rx2 - rx;
+    const h = ry2 - ry;
+    const cx = rx + w / 2;
+    const cy = ry + h / 2;
+
+    // ถ้ากล่องสูงกว่ากว้าง ให้หมุนป้าย 90 องศาเพื่อให้ข้อความวิ่งตามด้านยาว
+    // (ครอบคลุมทั้งอาคารแนวเหนือ-ใต้ และโถงบันไดของอาคารแนวตะวันออก-ตะวันตก)
+    const rotated = h > w * 1.15;
+    const boxLen = rotated ? h : w;            // แนวที่ข้อความวิ่ง
+    const { lines, size } = fitLabel(shortLabel(node), boxLen);
+
+    const g = el('g', {
+      class: 'room-text',
+      transform: rotated ? `rotate(-90 ${cx} ${cy})` : null,
+    }, parent);
+
+    const hasGlyph = node.type !== 'classroom' && style.glyph;
+    const lineH = size * 1.15;
+    // จัดกลุ่มข้อความ (+ ไอคอน) ให้อยู่กึ่งกลางกล่องในแนวตั้ง
+    const blockH = lines.length * lineH + (hasGlyph ? size * 1.3 : 0);
+    let y = cy - blockH / 2 + lineH * 0.62;
+
+    if (hasGlyph) {
+      const glyph = el('text', {
+        x: cx, y, class: 'room-glyph',
+        style: `font-size:${(size * 1.05).toFixed(2)}px`,
+        'text-anchor': 'middle', 'dominant-baseline': 'middle',
+      }, g);
+      glyph.textContent = style.glyph;
+      y += size * 1.3;
+    }
+
+    lines.forEach((line) => {
+      const t = el('text', {
+        x: cx, y, class: 'room-label',
+        style: `font-size:${size}px`,
+        'text-anchor': 'middle', 'dominant-baseline': 'middle',
+      }, g);
+      t.textContent = line;
+      y += lineH;
+    });
+  }
+
+  /** เส้นลูกนอนของบันได วาดขวางทิศทางเดิน */
+  _drawStairTreads(parent, rect, axis) {
+    const [x1, y1, x2, y2] = rect;
+    const steps = 6;
+    for (let i = 1; i < steps; i += 1) {
+      const t = i / steps;
+      if (axis === 'x') {
+        const x = x1 + (x2 - x1) * t;
+        el('line', { x1: x, y1: y1 + 0.8, x2: x, y2: y2 - 0.8, class: 'stair-tread' }, parent);
+      } else {
+        const y = y1 + (y2 - y1) * t;
+        el('line', { x1: x1 + 0.8, y1: y, x2: x2 - 0.8, y2: y, class: 'stair-tread' }, parent);
+      }
+    }
+  }
+
+  /** เครื่องหมายกากบาทในช่องลิฟต์ ตามสัญลักษณ์ผังสถาปัตย์ */
+  _drawLiftMark(parent, rect) {
+    const [x1, y1, x2, y2] = rect;
+    el('line', { x1: x1 + 1, y1: y1 + 1, x2: x2 - 1, y2: y2 - 1, class: 'lift-mark' }, parent);
+    el('line', { x1: x2 - 1, y1: y1 + 1, x2: x1 + 1, y2: y2 - 1, class: 'lift-mark' }, parent);
+  }
+
+  /* ==============================================================
+   * ไอคอนและป้ายของโหนด
+   * ============================================================ */
   setFloor(floor) {
     this.floor = floor;
     this.renderNodes();
@@ -351,61 +642,61 @@ class SchoolMap {
   }
 
   _visible(node) {
-    if (node.building === null || node.building === undefined) return true; // กลางแจ้ง แสดงตลอด
+    if (node.building === null || node.building === undefined) return true;
     return node.floor === this.floor;
   }
 
   renderNodes() {
+    this._renderFloorPlan();
+
     const nodesLayer = this.layers.nodes;
     const edgesLayer = this.layers.edges;
     nodesLayer.innerHTML = '';
     edgesLayer.innerHTML = '';
     this.nodeElements.clear();
 
-    // เส้นเชื่อม (โครงสร้างกราฟ) — แสดงเมื่อเปิดตัวเลือกเท่านั้น
+    // โครงสร้างกราฟ (เปิดจากตัวเลือกในหน้าเว็บ)
     if (this.showEdges) {
       const drawn = new Set();
       this.graph.edges.forEach((e) => {
         const a = this.graph.node(e.from);
         const b = this.graph.node(e.to);
-        if (!a || !b) return;
-        if (!this._visible(a) || !this._visible(b)) return;
+        if (!a || !b || !this._visible(a) || !this._visible(b)) return;
         const key = [e.from, e.to].sort().join('|');
         if (drawn.has(key)) return;
         drawn.add(key);
         el('line', {
-          x1: a.x, y1: a.y, x2: b.x, y2: b.y,
-          class: `graph-edge edge-${e.type}`,
+          x1: a.x, y1: a.y, x2: b.x, y2: b.y, class: `graph-edge edge-${e.type}`,
         }, edgesLayer);
       });
     }
 
     this.graph.nodes.forEach((node) => {
       if (!this._visible(node)) return;
-      const style = TYPE_STYLE[node.type] || { color: '#64748b', glyph: '📍' };
-      const isStructural = node.type === 'corridor' || node.type === 'junction';
-      if (isStructural && !this.showEdges) return;
-      if (this.typeFilter && !isStructural && !this.typeFilter.has(node.type)) return;
+      const structural = STRUCTURAL.has(node.type);
+      if (structural && !this.showEdges) return;
+      // ห้องที่มีรูปทรงถูกวาดในผังพื้นแล้ว ไม่ต้องวางไอคอนซ้ำ
+      if (node.rect) return;
+      if (this.typeFilter && !structural && !this.typeFilter.has(node.type)) return;
 
+      const style = TYPE_STYLE[node.type] || { color: '#64748b', glyph: '📍' };
       const g = el('g', {
-        class: `node node-${node.type}${isStructural ? ' node-structural' : ''}`,
+        class: `node node-${node.type}${structural ? ' node-structural' : ''}`,
         'data-id': node.id,
         transform: `translate(${node.x} ${node.y})`,
       }, nodesLayer);
 
-      if (isStructural) {
-        el('circle', { r: 0.9, fill: style.color, 'fill-opacity': 0.65 }, g);
+      if (structural) {
+        el('circle', { r: 0.9, class: 'structural-dot' }, g);
       } else {
         el('circle', { class: 'node-halo', r: 3.4 }, g);
-        el('circle', { class: 'node-dot', r: 2.3, fill: style.color }, g);
+        el('circle', { class: 'node-dot', r: 2.4, fill: style.color }, g);
         const glyph = el('text', {
           class: 'node-glyph', y: 0.05, 'text-anchor': 'middle',
           'dominant-baseline': 'central',
         }, g);
-        glyph.textContent = style.glyph || '';
-        const label = el('text', {
-          class: 'node-label', y: 6.2, 'text-anchor': 'middle',
-        }, g);
+        glyph.textContent = style.glyph || '📍';
+        const label = el('text', { class: 'node-label', y: 6.4, 'text-anchor': 'middle' }, g);
         label.textContent = node.name;
       }
 
@@ -420,54 +711,57 @@ class SchoolMap {
     this._renderEndpointMarkers();
   }
 
-  /* ------------------------- เส้นทาง ------------------------- */
+  /* ==============================================================
+   * เส้นทาง
+   * ============================================================ */
   renderRoute(route) {
     this.route = route;
     const layer = this.layers.route;
     layer.innerHTML = '';
     if (!route || !route.found || route.path.length < 2) {
+      this._applySelection();
       this._renderEndpointMarkers();
       return;
     }
 
     const nodes = route.path.map((id) => this.graph.node(id)).filter(Boolean);
 
-    // แบ่งเส้นทางเป็นช่วงตามชั้น เพื่อให้ช่วงที่ไม่ได้อยู่ชั้นปัจจุบันจางลง
+    // แบ่งเส้นทางเป็นช่วงตามชั้น ช่วงที่ไม่ได้อยู่ชั้นปัจจุบันจะจางลง
+    const runs = [];
+    let current = null;
     for (let i = 0; i < nodes.length - 1; i += 1) {
       const a = nodes[i];
       const b = nodes[i + 1];
-      const onFloor = this._visible(a) && this._visible(b);
       const vertical = a.floor !== b.floor && a.building === b.building;
       if (vertical) {
+        if (current) { runs.push(current); current = null; }
         el('circle', {
-          cx: a.x, cy: a.y, r: 3.6,
-          class: `route-vertical${onFloor ? '' : ' is-faded'}`,
+          cx: a.x, cy: a.y, r: 3.2,
+          class: `route-vertical${this._visible(a) ? '' : ' is-faded'}`,
         }, layer);
         continue;
       }
-      el('line', {
-        x1: a.x, y1: a.y, x2: b.x, y2: b.y,
-        class: `route-line${onFloor ? '' : ' is-faded'}`,
-      }, layer);
-    }
-
-    // เส้นเรืองแสงเฉพาะช่วงบนชั้นปัจจุบัน
-    let current = [];
-    const flush = () => {
-      if (current.length > 1) {
-        el('polyline', {
-          points: current.map((n) => `${n.x},${n.y}`).join(' '),
-          class: 'route-glow',
-        }, layer);
+      const onFloor = this._visible(a) && this._visible(b);
+      if (!current || current.onFloor !== onFloor) {
+        if (current) runs.push(current);
+        current = { onFloor, points: [a] };
       }
-      current = [];
-    };
-    nodes.forEach((n) => {
-      if (this._visible(n)) current.push(n);
-      else flush();
-    });
-    flush();
+      current.points.push(b);
+    }
+    if (current) runs.push(current);
 
+    // วาดสองชั้น: เส้นขาวรองพื้น แล้วทับด้วยเส้นสีส้ม
+    ['route-casing', 'route-line'].forEach((cls) => {
+      runs.forEach((run) => {
+        if (run.points.length < 2) return;
+        el('polyline', {
+          points: run.points.map((n) => `${n.x},${n.y}`).join(' '),
+          class: `${cls}${run.onFloor ? '' : ' is-faded'}`,
+        }, layer);
+      });
+    });
+
+    this._applySelection();
     this._renderEndpointMarkers();
   }
 
@@ -482,9 +776,8 @@ class SchoolMap {
     const draw = (id, kind, text) => {
       const node = this.graph.node(id);
       if (!node) return;
-      const faded = !this._visible(node);
       const g = el('g', {
-        class: `endpoint endpoint-${kind}${faded ? ' is-faded' : ''}`,
+        class: `endpoint endpoint-${kind}${this._visible(node) ? '' : ' is-faded'}`,
         transform: `translate(${node.x} ${node.y})`,
       }, layer);
       el('path', {
@@ -492,8 +785,7 @@ class SchoolMap {
         class: 'pin-body',
       }, g);
       const t = el('text', {
-        y: -11.2, 'text-anchor': 'middle', 'dominant-baseline': 'central',
-        class: 'pin-text',
+        y: -11.2, 'text-anchor': 'middle', 'dominant-baseline': 'central', class: 'pin-text',
       }, g);
       t.textContent = text;
     };
@@ -507,10 +799,30 @@ class SchoolMap {
   }
 
   _applySelection() {
-    this.nodeElements.forEach((g, id) => {
-      g.classList.toggle('is-selected', id === this.selectedId);
-      g.classList.toggle('is-on-route', !!this.route && this.route.found && this.route.path.includes(id));
+    const onRoute = new Set(this.route && this.route.found ? this.route.path : []);
+    const mark = (elm, id) => {
+      elm.classList.toggle('is-selected', id === this.selectedId);
+      elm.classList.toggle('is-on-route', onRoute.has(id));
+    };
+    this.nodeElements.forEach(mark);
+    this.layers.rooms.querySelectorAll('.room').forEach((rg) => {
+      mark(rg, rg.dataset.id);
     });
+  }
+
+  /** เปลี่ยนกราฟที่ใช้วาด โดยคงตำแหน่งการเลื่อน/ซูมเดิมไว้ (ใช้ในหน้าแก้ไขข้อมูล) */
+  setGraph(graph) {
+    this.graph = graph;
+    if (this.selectedId && !graph.node(this.selectedId)) this.selectedId = null;
+    // renderStatic() วาดเพิ่มลงในเลเยอร์ จึงต้องล้างของเดิมก่อน
+    this.layers.ground.innerHTML = '';
+    this.layers.areas.innerHTML = '';
+    this.layers.paths.innerHTML = '';
+    this.renderStatic();
+    this.renderNodes();
+    const stillValid = this.route && this.route.found
+      && this.route.path.every((id) => graph.node(id));
+    this.renderRoute(stillValid ? this.route : null);
   }
 
   /** ชั้นที่มีอยู่จริงในระบบ (ใช้สร้างปุ่มเลือกชั้น) */
