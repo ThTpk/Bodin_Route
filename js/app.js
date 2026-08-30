@@ -366,7 +366,10 @@ function renderRoute() {
   updateFloorButtons();
   state.view.setEndpoints(startNode.id, goalNode.id);
   state.view.renderRoute(route);
-  state.view.focusNode(startNode.id, 2.6);
+  // จงใจไม่เลื่อนกล้องไปที่จุดเริ่มต้นอัตโนมัติ เพราะการย้ายเป้ากล้อง (target)
+  // เท่ากับย้ายจุดหมุนของภาพไปไว้ที่จุดนั้น ภาพจึงหมุนรอบจุดเริ่มต้นแทนที่จะ
+  // หมุนรอบกึ่งกลางกราฟเหมือนก่อนค้นหา และยังถูกดึงกลับทุกครั้งที่เปลี่ยนตัวเลือก
+  // ถ้าอยากเลื่อนไปดูจุดใด ให้คลิกขั้นตอนในรายการคำแนะนำ หรือกดปุ่มพอดีหน้าจอ
 }
 
 function calculateRoute() {
