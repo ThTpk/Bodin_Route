@@ -651,6 +651,31 @@ code {
   color: #fff;
 }
 
+/* แผงเลื่อน/หมุนมุมมอง — ตาราง 3x3
+ * ขอบกลางสี่ด้าน = เลื่อนจุดศูนย์กลาง, สี่มุม = หมุน/ก้มเงย, ตรงกลาง = กลับกึ่งกลาง */
+.hud-pad .pad-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 32px);
+  gap: 3px;
+}
+.hud-pad button {
+  font: inherit;
+  font-size: 12px;
+  line-height: 1;
+  height: 30px;
+  border: 0;
+  border-radius: 7px;
+  background: var(--surface-2);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background .14s, color .14s;
+}
+.hud-pad button:hover { background: var(--border); color: var(--text); }
+.hud-pad button:active { background: var(--navy-800); color: #fff; }
+.hud-pad .pad-dir { color: var(--text); font-size: 11px; }
+.hud-pad .pad-rot { font-size: 14px; }
+.hud-pad .pad-home { font-size: 15px; }
+
 .hud-zoom { display: flex; flex-direction: column; gap: 3px; }
 .hud-zoom button {
   font: inherit;
@@ -901,6 +926,12 @@ code {
   .view-hint { display: none; }
   .hud-view { width: 148px; }
   .hud-view .hud-toggle { font-size: 11px; padding: 5px 7px; }
+  /* จอแคบ: ปุ่มชั้นเรียงเป็นตาราง และย่อแผงเลื่อน/หมุน เพื่อไม่ให้บังภาพ */
+  .floor-switch { flex-direction: row; flex-wrap: wrap; max-width: 132px; }
+  .floor-switch button { min-width: 40px; height: 27px; font-size: 12px; }
+  .hud-pad .pad-grid { grid-template-columns: repeat(3, 28px); }
+  .hud-pad button { height: 26px; }
+  .hud-zoom button { width: 30px; height: 27px; }
   .toast { bottom: 190px; }
   .stat-grid { grid-template-columns: repeat(2, 1fr); }
   .brand-text h1 { font-size: 14px; }

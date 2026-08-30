@@ -268,6 +268,37 @@ class Graph3DView {
 
   zoomOut() { this.dist = clamp(this.dist * 1.28, 40, 4000); this.invalidate(); }
 
+  /* -------------------------------------------------------------
+   * เลื่อนจุดศูนย์กลางภาพ / หมุนมุมมองแบบทีละขั้น
+   * ใช้กับปุ่มบนหน้าจอและปุ่มลูกศรบนคีย์บอร์ด
+   * (ลากเมาส์ยังทำได้เหมือนเดิมและให้ผลเดียวกัน)
+   * ----------------------------------------------------------- */
+
+  /** เลื่อนจุดศูนย์กลางภาพไปทางทิศที่สั่ง ครั้งละราว 1 ใน 5 ของขนาดจอ */
+  panDirection(dir) {
+    const kx = this.width * 0.22;
+    const ky = this.height * 0.22;
+    this._anim = null;
+    if (dir === 'up') this.panBy(0, ky);
+    else if (dir === 'down') this.panBy(0, -ky);
+    else if (dir === 'left') this.panBy(kx, 0);
+    else if (dir === 'right') this.panBy(-kx, 0);
+  }
+
+  /** หมุนรอบแกนตั้ง (yaw) และก้ม-เงย (pitch) เป็นเรเดียน */
+  rotateBy(dYaw, dPitch) {
+    this.yaw = (this.yaw + (dYaw || 0)) % TAU;
+    this.pitch = clamp(this.pitch + (dPitch || 0), 0.06, 1.52);
+    this.invalidate();
+  }
+
+  /** ดึงจุดศูนย์กลางภาพกลับไปกึ่งกลางกราฟ โดยไม่เปลี่ยนมุมและระยะซูม */
+  recenter() {
+    this._anim = null;
+    this.centerOnData();
+    this.invalidate();
+  }
+
   setFloorGap(gap) {
     this.floorGap = clamp(Number(gap) || 0, 2, 40);
     this.invalidate();
@@ -801,17 +832,24 @@ class Graph3DView {
       this.invalidate();
     }, { passive: false });
 
-    // ปุ่มลูกศรหมุนมุมมองด้วยคีย์บอร์ด
+    /* คีย์บอร์ด: ลูกศร = เลื่อนจุดศูนย์กลาง, Shift+ลูกศร = หมุน/เอียง,
+     * + - = ซูม, F = พอดีจอ, C = กลับไปกึ่งกลางกราฟ */
     canvas.setAttribute('tabindex', '0');
     canvas.addEventListener('keydown', (evt) => {
-      const step = evt.shiftKey ? 0.18 : 0.06;
-      if (evt.key === 'ArrowLeft') this.yaw -= step;
-      else if (evt.key === 'ArrowRight') this.yaw += step;
-      else if (evt.key === 'ArrowUp') this.pitch = clamp(this.pitch + step, 0.06, 1.52);
-      else if (evt.key === 'ArrowDown') this.pitch = clamp(this.pitch - step, 0.06, 1.52);
-      else if (evt.key === '+' || evt.key === '=') this.zoomIn();
-      else if (evt.key === '-') this.zoomOut();
-      else if (evt.key.toLowerCase() === 'f') this.fit();
+      const key = evt.key;
+      const rot = 0.14;
+      if (evt.shiftKey && key === 'ArrowLeft') this.rotateBy(-rot, 0);
+      else if (evt.shiftKey && key === 'ArrowRight') this.rotateBy(rot, 0);
+      else if (evt.shiftKey && key === 'ArrowUp') this.rotateBy(0, rot);
+      else if (evt.shiftKey && key === 'ArrowDown') this.rotateBy(0, -rot);
+      else if (key === 'ArrowLeft') this.panDirection('left');
+      else if (key === 'ArrowRight') this.panDirection('right');
+      else if (key === 'ArrowUp') this.panDirection('up');
+      else if (key === 'ArrowDown') this.panDirection('down');
+      else if (key === '+' || key === '=') this.zoomIn();
+      else if (key === '-' || key === '_') this.zoomOut();
+      else if (key === 'f' || key === 'F') this.fit();
+      else if (key === 'c' || key === 'C') this.recenter();
       else return;
       evt.preventDefault();
       this.invalidate();

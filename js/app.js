@@ -698,6 +698,19 @@ async function main() {
   $('#zoom-out').addEventListener('click', () => state.view.zoomOut());
   $('#zoom-fit').addEventListener('click', () => state.view.fit());
 
+  /* ---- แผงเลื่อนจุดศูนย์กลาง / หมุนมุมมอง ---- */
+  const ROTATE_STEP = { ccw: [-0.22, 0], cw: [0.22, 0], up: [0, 0.16], down: [0, -0.16] };
+  $$('#view-pad [data-pan]').forEach((btn) => {
+    btn.addEventListener('click', () => state.view.panDirection(btn.dataset.pan));
+  });
+  $$('#view-pad [data-rotate]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const [dYaw, dPitch] = ROTATE_STEP[btn.dataset.rotate] || [0, 0];
+      state.view.rotateBy(dYaw, dPitch);
+    });
+  });
+  $('#pan-center').addEventListener('click', () => state.view.recenter());
+
   /* ---- ปุ่มสลับสถานะของภาพ 3 มิติ ---- */
   const toggle = (id, apply) => {
     const btn = $(id);
