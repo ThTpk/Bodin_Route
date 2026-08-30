@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Dijkstra's Algorithm — อธิบายทีละขั้นพร้อมภาพจำลอง</title>
+<meta name="description" content="อธิบายอัลกอริทึม Dijkstra สำหรับหาเส้นทางสั้นที่สุด ตั้งแต่แนวคิด pseudo code ตัวอย่างการทำงานทีละขั้น จนถึงภาพจำลองแบบกดเล่นได้">
+<meta name="theme-color" content="#1e3a8a">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/learn.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧭</text></svg>">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark" aria-hidden="true">🧭</span>
+    <div class="brand-text">
+      <h1>Dijkstra's Algorithm</h1>
+      <p>อัลกอริทึมเบื้องหลังการหาเส้นทางสั้นที่สุด</p>
+    </div>
+  </div>
+  <nav class="topbar-actions">
+    <a href="index.html">← กลับหน้าแผนที่</a>
+    <a href="dijkstra.html" class="is-current">Dijkstra</a>
+    <a href="astar.html">A* Search</a>
+  </nav>
+</header>
+
+<main class="doc">
+
+  <div class="hero">
+    <p class="eyebrow">Shortest Path Algorithm</p>
+    <h2>Dijkstra's Algorithm — หาทางที่ "สั้นที่สุดจริง ๆ" โดยไม่ต้องลองทุกเส้นทาง</h2>
+    <p>
+      ถ้าจะเดินจากประตูโรงเรียนไปห้องสมุด เส้นทางที่เป็นไปได้มีมากมายจนนับไม่ไหว
+      Dijkstra เป็นวิธีที่ทำให้คอมพิวเตอร์หา "ทางที่สั้นที่สุด" เจอ
+      โดยไม่ต้องไล่ลองทุกเส้นทาง และ<strong>รับประกันได้ว่าคำตอบสั้นที่สุดจริง</strong>
+      หน้านี้จะพาไปดูตั้งแต่แนวคิด โค้ดจำลอง (pseudo code) ไปจนถึงภาพเคลื่อนไหวที่กดเดินทีละขั้นได้
+    </p>
+    <div class="hero-tags">
+      <span class="tag">คิดค้นปี 1956 โดย Edsger W. Dijkstra</span>
+      <span class="tag">Greedy + Relaxation</span>
+      <span class="tag">O((V + E) log V)</span>
+      <span class="tag">ใช้จริงใน <code>js/graph.js</code></span>
+    </div>
+  </div>
+
+  <ul class="toc">
+    <li><a href="#problem">1. โจทย์คืออะไร</a></li>
+    <li><a href="#idea">2. แนวคิดหลัก</a></li>
+    <li><a href="#pseudo">3. Pseudo code + ภาพจำลอง</a></li>
+    <li><a href="#walk">4. เดินทีละขั้นด้วยมือ</a></li>
+    <li><a href="#why">5. ทำไมถึงได้คำตอบที่สั้นที่สุดเสมอ</a></li>
+    <li><a href="#limit">6. ข้อจำกัดและความเร็ว</a></li>
+    <li><a href="#project">7. ใช้ในโปรเจกต์นี้อย่างไร</a></li>
+  </ul>
+
+  <!-- ============================================================ -->
+  <section class="block" id="problem">
+    <h3>1. โจทย์คืออะไร</h3>
+
+    <p>
+      เริ่มจากการเปลี่ยนแผนที่ให้เป็นสิ่งที่คอมพิวเตอร์เข้าใจ เรียกว่า <strong>กราฟ (graph)</strong> ซึ่งมีแค่สองอย่าง
+    </p>
+    <ul>
+      <li><strong>โหนด (node)</strong> — จุดสำคัญ เช่น ห้องเรียน บันได ทางแยก ประตูโรงเรียน</li>
+      <li><strong>เส้นเชื่อม (edge)</strong> — ทางเดินที่ต่อระหว่างสองโหนด พร้อม <strong>น้ำหนัก (weight)</strong>
+        คือ "ราคา" ของการเดินเส้นนั้น เช่น ระยะทางเป็นเมตร หรือเวลาเป็นวินาที</li>
+    </ul>
+
+    <div class="callout key">
+      <strong class="callout-title">โจทย์ single-source shortest path</strong>
+      <p>
+        เมื่อกำหนดกราฟ จุดเริ่มต้น และจุดหมาย จงหาลำดับของเส้นเชื่อมที่พาจากจุดเริ่มต้นไปถึงจุดหมาย
+        โดยที่ <strong>ผลรวมของน้ำหนักน้อยที่สุด</strong>
+      </p>
+    </div>
+
+    <h4>ทำไมไม่ลองทุกเส้นทางไปเลย</h4>
+    <p>
+      เพราะจำนวนเส้นทางเพิ่มแบบระเบิด กราฟตัวอย่างในหน้านี้มีแค่
+      <b data-stat="total-nodes">11</b> โหนด <b data-stat="total-edges">16</b> เส้นเชื่อม
+      ก็มีเส้นทางให้ลองหลายสิบเส้นแล้ว ส่วนกราฟจริงของเว็บแผนที่นี้มีโหนดหลักร้อย
+      ถ้าไล่ลองทุกความเป็นไปได้จะช้าจนใช้งานไม่ได้ Dijkstra จึงใช้วิธีที่ฉลาดกว่านั้น
+    </p>
+  </section>
+
+  <!-- ============================================================ -->
+  <section class="block" id="idea">
+    <h3>2. แนวคิดหลัก — "คลื่นน้ำที่แผ่ออกจากจุดเริ่มต้น"</h3>
+
+    <p>
+      ภาพที่ตรงที่สุดคือ <strong>หยดน้ำลงบนจุดเริ่มต้น แล้วปล่อยให้คลื่นแผ่ออกไปด้วยความเร็วเท่ากันทุกทิศ</strong>
+      คลื่นจะไปถึงที่ใกล้ก่อนเสมอ ดังนั้น "ลำดับที่คลื่นไปถึง" ก็คือ "ลำดับระยะทางจากใกล้ไปไกล" นั่นเอง
+      Dijkstra คือการจำลองคลื่นนี้ด้วยตัวเลข
+    </p>
+
+    <div class="grid-2">
+      <div class="card">
+        <h4>① ทุกโหนดมีตัวเลขประจำตัว <code>dist</code></h4>
+        <p>
+          <code>dist[v]</code> = ระยะที่ดีที่สุด<em>เท่าที่รู้ตอนนี้</em>จากจุดเริ่มต้นถึง <code>v</code><br>
+          ตอนเริ่ม ทุกโหนดเป็น <code>∞</code> (ยังไปไม่ถึง) ยกเว้นจุดเริ่มต้นที่เป็น <code>0</code>
+        </p>
+      </div>
+      <div class="card">
+        <h4>② Relaxation — "ลองเส้นทางใหม่แล้วดีขึ้นไหม"</h4>
+        <p>
+          ยืนที่ <code>u</code> แล้วมองไปยังเพื่อนบ้าน <code>v</code> ถ้า
+          <code>dist[u] + น้ำหนัก(u,v) &lt; dist[v]</code>
+          แปลว่าเจอทางที่ดีกว่าเดิม ก็อัปเดตตัวเลขและจำไว้ว่า "มาจาก <code>u</code>"
+        </p>
+      </div>
+      <div class="card">
+        <h4>③ Greedy — เลือกโหนดที่ใกล้ที่สุดก่อนเสมอ</h4>
+        <p>
+          ทุกรอบให้หยิบโหนดที่มี <code>dist</code> น้อยที่สุดในบรรดาที่ยังไม่ได้ปิด
+          ออกมาทำงาน — นี่คือหัวใจที่ทำให้อัลกอริทึมถูกต้อง
+        </p>
+      </div>
+      <div class="card">
+        <h4>④ ปิดแล้วปิดเลย (settled)</h4>
+        <p>
+          โหนดที่ถูกหยิบออกมาแล้ว ถือว่า <code>dist</code> ของมันเป็นค่าที่สั้นที่สุดจริง
+          ไม่ต้องกลับมาแก้อีก จึงไม่มีการวนซ้ำไปมา
+        </p>
+      </div>
+    </div>
+
+    <div class="callout">
+      <strong class="callout-title">คิวลำดับความสำคัญ (priority queue) คืออะไร</strong>
+      <p>
+        คือกล่องเก็บโหนดที่ "รู้จักแล้วแต่ยังไม่ปิด" ซึ่งหยิบตัวที่ค่าน้อยที่สุดออกมาได้เร็ว
+        ถ้าใช้การไล่หาทีละตัวจะช้า จึงนิยมใช้โครงสร้างชื่อ <strong>binary heap</strong>
+        ที่หยิบตัวน้อยสุดได้ในเวลา <code>O(log n)</code>
+        (ในโปรเจกต์นี้เขียนไว้ที่คลาส <code>MinHeap</code> ใน <code>js/graph.js</code>)
+      </p>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section class="block" id="pseudo">
+    <h3>3. Pseudo code และภาพจำลองที่กดเดินได้</h3>
+
+    <p>
+      กด <strong>เล่นอัตโนมัติ</strong> หรือ <strong>ถัดไป</strong> เพื่อเดินทีละขั้น
+      ระหว่างเล่นให้สังเกตสามอย่างพร้อมกัน คือ บรรทัด pseudo code ที่ถูกไฮไลต์ ตัวเลขในตาราง และสีของโหนดในภาพ
+      (คลิกที่โหนดใดก็ได้เพื่อเปลี่ยนจุดหมายแล้วดูใหม่)
+    </p>
+
+    <div class="viz" data-mode="dijkstra">
+      <ol class="pc">
+<li><span class="k">ฟังก์ชัน</span> Dijkstra(กราฟ G, จุดเริ่ม s, เป้าหมาย t):</li>
+<li>    <span class="k">สำหรับทุก</span>โหนด v ใน G:</li>
+<li>        dist[v] ← ∞ ,  prev[v] ← ว่าง</li>
+<li>    dist[s] ← 0</li>
+<li>    Q ← คิวลำดับความสำคัญ, ใส่ s ด้วยค่า dist[s]</li>
+<li>    <span class="k">ขณะที่</span> Q ยังไม่ว่าง:</li>
+<li>        u ← โหนดใน Q ที่ dist น้อยที่สุด (ดึงออกมา)</li>
+<li>        <span class="k">ถ้า</span> u = t : <span class="k">ออกจากลูป</span></li>
+<li>        ทำเครื่องหมายว่า u ปิดแล้ว (settled)</li>
+<li>        <span class="k">สำหรับทุก</span>เพื่อนบ้าน v ของ u:</li>
+<li>            <span class="k">ถ้า</span> v ปิดแล้ว : ข้ามไปตัวถัดไป</li>
+<li>            alt ← dist[u] + w(u, v)   <span class="c">// ระยะถ้าเดินผ่าน u</span></li>
+<li>            <span class="k">ถ้า</span> alt &lt; dist[v] :        <span class="c">// relaxation</span></li>
+<li>                dist[v] ← alt</li>
+<li>                prev[v] ← u</li>
+<li>                ใส่ v ลง Q ด้วยค่า dist[v] (หรืออัปเดตค่าเดิม)</li>
+<li>    <span class="k">คืนค่า</span> เส้นทางที่ย้อนรอยจาก prev</li>
+      </ol>
+    </div>
+
+    <div class="callout tip">
+      <strong class="callout-title">อ่านสีในภาพอย่างไร</strong>
+      <p>
+        <strong>สีเทา</strong> = ยังไม่รู้จัก · <strong>สีเหลือง</strong> = รู้ระยะคร่าว ๆ แล้วและกำลังรออยู่ในคิว ·
+        <strong>สีน้ำเงินทึบ</strong> = ปิดแล้ว ระยะยืนยันเป็นค่าสั้นที่สุด ·
+        <strong>วงส้มกะพริบ</strong> = โหนดที่กำลังพิจารณาอยู่ในขั้นนี้ ·
+        <strong>เส้นส้มหนา</strong> = เส้นทางคำตอบสุดท้าย
+      </p>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section class="block" id="walk">
+    <h3>4. เดินทีละขั้นด้วยมือ</h3>
+
+    <p>
+      ตารางนี้คือการทำงานทั้งหมดของภาพด้านบน จาก <b>S (ประตูโรงเรียน)</b> ไป <b>H (ห้องสมุด)</b>
+      หนึ่งแถวคือหนึ่งรอบของลูป <code>while</code> คือ "ดึงโหนดที่ใกล้ที่สุดออกมาหนึ่งตัว แล้วอัปเดตเพื่อนบ้าน"
+    </p>
+
+    <div class="tbl-wrap">
+      <table class="tbl">
+        <thead>
+          <tr>
+            <th>รอบ</th>
+            <th>ดึงออกจากคิว</th>
+            <th class="num">ระยะที่ยืนยัน</th>
+            <th>อัปเดตเพื่อนบ้าน (relaxation)</th>
+            <th>คิวหลังจบรอบ</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>1</td><td>S ประตูโรงเรียน</td><td class="num">0</td>
+              <td>P: ∞→130 · Q: ∞→130 · A: ∞→140 · B: ∞→140 · D: ∞→300</td>
+              <td class="num">P:130, Q:130, A:140, B:140, D:300</td></tr>
+          <tr><td>2</td><td>P ลานจอดรถ</td><td class="num">130</td>
+              <td>Q ผ่าน P ได้ 285 ซึ่งแย่กว่า 130 → ไม่เปลี่ยน</td>
+              <td class="num">Q:130, A:140, B:140, D:300</td></tr>
+          <tr><td>3</td><td>Q โรงอาหาร</td><td class="num">130</td>
+              <td>เพื่อนบ้านปิดหมดแล้ว → ไม่เปลี่ยน</td>
+              <td class="num">A:140, B:140, D:300</td></tr>
+          <tr><td>4</td><td>A อาคาร 1</td><td class="num">140</td>
+              <td>C: ∞→265 · D ผ่าน A ได้ 305 แย่กว่า 300 → ไม่เปลี่ยน</td>
+              <td class="num">B:140, C:265, D:300</td></tr>
+          <tr><td>5</td><td>B สนามกีฬา</td><td class="num">140</td>
+              <td>E: ∞→265 · D ผ่าน B ได้ 300 เท่าเดิมพอดี → ไม่เปลี่ยน</td>
+              <td class="num">C:265, E:265, D:300</td></tr>
+          <tr><td>6</td><td>C อาคาร 2</td><td class="num">265</td>
+              <td>F: ∞→390</td>
+              <td class="num">E:265, D:300, F:390</td></tr>
+          <tr><td>7</td><td>E หอประชุม</td><td class="num">265</td>
+              <td>G: ∞→395</td>
+              <td class="num">D:300, F:390, G:395</td></tr>
+          <tr><td>8</td><td>D ลานกลาง</td><td class="num">300</td>
+              <td>F ผ่าน D ได้ 450 · G ได้ 450 แย่กว่าเดิมทั้งคู่ → ไม่เปลี่ยน</td>
+              <td class="num">F:390, G:395</td></tr>
+          <tr><td>9</td><td>F อาคาร 3</td><td class="num">390</td>
+              <td>H: ∞→525</td>
+              <td class="num">G:395, H:525</td></tr>
+          <tr><td>10</td><td>G โรงยิม</td><td class="num">395</td>
+              <td>H ผ่าน G ได้ 535 แย่กว่า 525 → ไม่เปลี่ยน</td>
+              <td class="num">H:525</td></tr>
+          <tr><td>11</td><td><strong>H ห้องสมุด = เป้าหมาย</strong></td><td class="num">525</td>
+              <td>เป้าหมายถูกดึงออกจากคิว → หยุดทันที</td>
+              <td class="num">ว่าง</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h4>ย้อนรอยหาเส้นทาง</h4>
+    <p>
+      อัลกอริทึมไม่ได้เก็บ "เส้นทาง" ไว้ตรง ๆ แต่เก็บแค่ <code>prev</code> ว่าแต่ละโหนดเดินมาจากใคร
+      พอถึงปลายทางก็เดินย้อนกลับ
+    </p>
+    <div class="formula">
+      H ← F ← C ← A ← S &nbsp;&nbsp;⇒&nbsp;&nbsp; กลับด้านได้เส้นทาง <b>S → A → C → F → H</b> รวม <b>525 เมตร</b>
+    </div>
+
+    <div class="callout warn">
+      <strong class="callout-title">จุดที่คนมักเข้าใจผิด</strong>
+      <p>
+        ในรอบที่ 8 โหนด D ถูกดึงออกด้วยระยะ 300 ซึ่ง<em>สั้นกว่า</em> F (390) แต่สุดท้าย D กลับไม่ได้อยู่ในคำตอบ
+        เพราะ "อยู่ใกล้จุดเริ่มต้น" ไม่ได้แปลว่า "อยู่บนเส้นทางที่ดีที่สุดไปยังปลายทาง"
+        Dijkstra ไม่รู้ว่าปลายทางอยู่ทางไหน มันจึงต้องแผ่คลื่นออกไปทุกทิศ — ข้อนี้เองที่
+        <a href="astar.html">A* Search</a> เข้ามาแก้
+      </p>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section class="block" id="why">
+    <h3>5. ทำไมถึงได้คำตอบที่สั้นที่สุดเสมอ</h3>
+
+    <p>
+      คำถามสำคัญคือ ตอนที่เราหยิบโหนด <code>u</code> ที่มีค่า <code>dist</code> น้อยที่สุดออกจากคิว
+      ทำไมจึงมั่นใจได้ว่าไม่มีทางอื่นที่สั้นกว่านี้อีกแล้ว ทั้งที่ยังไม่ได้สำรวจกราฟทั้งหมด
+    </p>
+
+    <div class="card">
+      <h4>เหตุผลแบบไม่ใช้สัญลักษณ์คณิตศาสตร์</h4>
+      <p>
+        สมมติว่ามีทางลับที่ไปถึง <code>u</code> ได้สั้นกว่าค่าที่เรามี
+        ทางลับนั้นต้องเริ่มจากจุดเริ่มต้นแล้ว "ออก" จากกลุ่มโหนดที่ปิดไปแล้ว
+        ผ่านโหนดสักตัวที่ยังอยู่ในคิว เรียกว่า <code>x</code>
+      </p>
+      <p>
+        แต่ <code>x</code> ก็อยู่ในคิวเหมือนกัน และเราเลือก <code>u</code> เพราะ <code>u</code> มีค่าน้อยที่สุด
+        ดังนั้น <code>dist[x] ≥ dist[u]</code> เสมอ
+        เมื่อทางลับต้องเดินผ่าน <code>x</code> ต่อไปอีก และ<strong>ทุกน้ำหนักไม่ติดลบ</strong>
+        ระยะทางมีแต่จะเพิ่ม ทางลับจึงยาวกว่าหรือเท่ากับค่าที่เรามีอยู่แล้ว — ขัดแย้งกับที่สมมติไว้
+      </p>
+      <p style="margin-bottom:0">
+        สรุป: ทางลับที่สั้นกว่าไม่มีทางมีอยู่จริง ค่า <code>dist[u]</code> ที่หยิบออกมาจึงเป็นคำตอบสุดท้ายได้เลย
+      </p>
+    </div>
+
+    <div class="callout warn">
+      <strong class="callout-title">เงื่อนไขสำคัญ: ห้ามมีน้ำหนักติดลบ</strong>
+      <p>
+        เหตุผลข้างบนพังทันทีถ้ามีเส้นเชื่อมน้ำหนักติดลบ เพราะการเดินต่ออีกก้าวอาจทำให้ระยะ<em>ลดลง</em>ได้
+        กรณีนั้นต้องใช้อัลกอริทึมอื่น เช่น <strong>Bellman–Ford</strong>
+        โชคดีที่ระยะทางและเวลาเดินในโลกจริงไม่มีทางติดลบ Dijkstra จึงเหมาะกับงานแผนที่พอดี
+      </p>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section class="block" id="limit">
+    <h3>6. ความเร็วและข้อจำกัด</h3>
+
+    <div class="tbl-wrap">
+      <table class="tbl">
+        <thead><tr><th>หัวข้อ</th><th>รายละเอียด</th></tr></thead>
+        <tbody>
+          <tr><td>เวลาทำงาน</td><td>O((V + E) log V) เมื่อใช้ binary heap (V = จำนวนโหนด, E = จำนวนเส้นเชื่อม)</td></tr>
+          <tr><td>หน่วยความจำ</td><td>O(V) สำหรับตาราง <code>dist</code>, <code>prev</code> และคิว</td></tr>
+          <tr><td>ต้องการ</td><td>น้ำหนักทุกเส้น ≥ 0</td></tr>
+          <tr><td>ได้ผลพลอยได้</td><td>ระยะสั้นที่สุดจากจุดเริ่มต้นไป<strong>ทุกโหนด</strong> ไม่ใช่แค่ปลายทางเดียว</td></tr>
+          <tr><td>จุดอ่อน</td><td>ไม่รู้ว่าปลายทางอยู่ทิศไหน จึงสำรวจโหนดที่ไม่เกี่ยวข้องไปเยอะ</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>
+      ในกราฟตัวอย่างของหน้านี้ Dijkstra ต้องดึงโหนดออกจากคิวถึง
+      <b data-stat="dijkstra-expanded">11</b> ครั้ง จากทั้งหมด <b data-stat="total-nodes">11</b> โหนด
+      คือแทบสำรวจทั้งกราฟ ขณะที่ A* ซึ่งรู้ทิศทางคร่าว ๆ ของปลายทางใช้เพียง
+      <b data-stat="astar-expanded">7</b> ครั้ง (ลดลงราว <b data-stat="saved-percent">36</b>%)
+      โดยได้เส้นทางเดียวกันเป๊ะ
+    </p>
+
+    <div class="compare">
+      <div><b data-stat="dijkstra-expanded">11</b><small>โหนดที่ Dijkstra สำรวจ</small></div>
+      <div><b data-stat="astar-expanded">7</b><small>โหนดที่ A* สำรวจ</small></div>
+      <div><b data-stat="cost">525</b><small>ระยะของคำตอบ (เท่ากันทั้งคู่)</small></div>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section class="block" id="project">
+    <h3>7. ใช้ในโปรเจกต์นี้อย่างไร</h3>
+
+    <p>
+      โค้ดจริงอยู่ในไฟล์ <code>js/graph.js</code> ซึ่งใช้ Dijkstra สามที่
+    </p>
+    <ul>
+      <li>
+        <strong>เมธอด <code>shortestPath()</code></strong> — เป็นโค้ดชุดเดียวกับ A*
+        เพียงแต่เมื่อเลือก <code>algorithm: 'dijkstra'</code> จะตั้งค่าประมาณ (heuristic) เป็นศูนย์ทั้งหมด
+        ซึ่งทำให้กลายเป็น Dijkstra แท้ ๆ ทันที (ในหน้าแผนที่เลือกได้จากช่อง "อัลกอริทึม")
+      </li>
+      <li>
+        <strong>เมธอด <code>nearest()</code> (multi-target Dijkstra)</strong> — ใช้กับปุ่ม "หาโหนดที่ใกล้ที่สุด"
+        เดินคลื่นออกจากจุดเริ่มต้นรอบเดียว แล้วเก็บบันได/ทางเชื่อม/ห้องเรียนที่คลื่นไปถึงตามลำดับ
+        เร็วกว่าการหาเส้นทางทีละเป้าหมายมาก
+      </li>
+      <li>
+        <strong>คลาส <code>MinHeap</code></strong> — คิวลำดับความสำคัญที่ทำให้การหยิบโหนดค่าน้อยสุดเร็วเป็น O(log n)
+      </li>
+    </ul>
+
+    <h4>รายละเอียดของกราฟจริงในเว็บนี้</h4>
+    <ul>
+      <li>น้ำหนักเลือกได้สองแบบ คือ <strong>ระยะทาง (เมตร)</strong> หรือ <strong>เวลา (วินาที)</strong></li>
+      <li>บันไดเป็นเส้นเชื่อม<strong>แบบมีทิศทาง</strong> เพราะขึ้นบันไดใช้เวลา 20 วินาที แต่ลงใช้ 15 วินาที</li>
+      <li>ตัวเลือก "เลี่ยงบันได" ทำงานโดยกรองเส้นเชื่อมชนิดบันไดออกตอน relax ไม่ได้สร้างกราฟใหม่</li>
+    </ul>
+
+    <div class="callout tip">
+      <strong class="callout-title">ลองเองได้</strong>
+      <p>
+        เปิด<a href="index.html">หน้าแผนที่ 3 มิติ</a> เลือกจุดเริ่มต้นกับจุดหมาย
+        แล้วสลับช่อง "อัลกอริทึม" ระหว่าง Dijkstra กับ A* ผลลัพธ์เส้นทางจะเหมือนกันเสมอ
+        แต่ตัวเลข "จำนวนโหนดที่สำรวจ" ในผลลัพธ์จะต่างกันชัดเจน
+      </p>
+    </div>
+  </section>
+
+  <nav class="next-nav">
+    <a href="astar.html">
+      <small>อ่านต่อ</small>
+      <strong>A* Search →</strong>
+      <small>Dijkstra ที่เพิ่ม "เข็มทิศ" ให้รู้ว่าปลายทางอยู่ทิศไหน จึงเร็วกว่าโดยยังได้คำตอบสั้นที่สุดเท่าเดิม</small>
+    </a>
+    <a href="index.html">
+      <small>กลับไป</small>
+      <strong>แผนที่กราฟ 3 มิติ →</strong>
+      <small>ทดลองค้นหาเส้นทางบนกราฟจริงของอาคารเรียน พร้อมสลับอัลกอริทึมได้</small>
+    </a>
+  </nav>
+
+  <p class="doc-foot">
+    ภาพจำลองในหน้านี้รันอัลกอริทึมจริงในเบราว์เซอร์ ไม่ได้เป็นภาพที่อัดไว้ล่วงหน้า
+    โค้ดอยู่ที่ <code>js/learn-viz.js</code> ส่วนอัลกอริทึมที่ใช้งานจริงอยู่ที่ <code>js/graph.js</code>
+  </p>
+
+</main>
+
+<script src="js/learn-viz.js"></script>
+</body>
+</html>

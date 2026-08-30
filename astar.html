@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>A* Search — อธิบายทีละขั้นพร้อมภาพจำลอง</title>
+<meta name="description" content="อธิบายอัลกอริทึม A* Search ตั้งแต่แนวคิด f = g + h ฟังก์ชัน heuristic pseudo code ตัวอย่างการทำงานทีละขั้น จนถึงภาพจำลองแบบกดเล่นได้">
+<meta name="theme-color" content="#1e3a8a">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/learn.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧭</text></svg>">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark" aria-hidden="true">🧭</span>
+    <div class="brand-text">
+      <h1>A* Search</h1>
+      <p>Dijkstra ที่มีเข็มทิศชี้ไปหาปลายทาง</p>
+    </div>
+  </div>
+  <nav class="topbar-actions">
+    <a href="index.html">← กลับหน้าแผนที่</a>
+    <a href="dijkstra.html">Dijkstra</a>
+    <a href="astar.html" class="is-current">A* Search</a>
+  </nav>
+</header>
+
+<main class="doc">
+
+  <div class="hero">
+    <p class="eyebrow">Informed Search Algorithm</p>
+    <h2>A* Search — เดาทิศทางเป็น จึงหาเจอเร็วกว่า โดยยังได้ทางที่สั้นที่สุดเท่าเดิม</h2>
+    <p>
+      <a href="dijkstra.html">Dijkstra</a> ค้นหาแบบ "แผ่คลื่นออกทุกทิศเท่า ๆ กัน" ซึ่งถูกต้องเสมอแต่เปลืองแรง
+      เพราะมันไม่รู้เลยว่าปลายทางอยู่ทางไหน  A* แก้ปัญหานี้ด้วยการเพิ่ม
+      <strong>ค่าประมาณระยะที่เหลือ</strong> เข้าไป ทำให้การค้นหาเอนไปทางปลายทาง
+      ผลคือสำรวจโหนดน้อยลงมาก แต่ยัง<strong>รับประกันคำตอบที่สั้นที่สุด</strong>ได้อยู่
+      ถ้าค่าประมาณนั้นมีคุณสมบัติที่ถูกต้อง
+    </p>
+    <div class="hero-tags">
+      <span class="tag">เผยแพร่ปี 1968 — Hart, Nilsson, Raphael</span>
+      <span class="tag">f = g + h</span>
+      <span class="tag">Admissible heuristic</span>
+      <span class="tag">ค่าเริ่มต้นของเว็บแผนที่นี้</span>
+    </div>
+  </div>
+
+  <ul class="toc">
+    <li><a href="#why">1. ทำไมต้องมี A*</a></li>
+    <li><a href="#fgh">2. หัวใจคือสูตร f = g + h</a></li>
+    <li><a href="#heuristic">3. heuristic ที่ดีต้องมีคุณสมบัติอะไร</a></li>
+    <li><a href="#pseudo">4. Pseudo code + ภาพจำลอง</a></li>
+    <li><a href="#walk">5. เดินทีละขั้นด้วยมือ</a></li>
+    <li><a href="#compare">6. เทียบกับ Dijkstra ตรง ๆ</a></li>
+    <li><a href="#project">7. ใช้ในโปรเจกต์นี้อย่างไร</a></li>
+  </ul>
+
+  <!-- ============================================================ -->
+  <section class="block" id="why">
+    <h3>1. ทำไมต้องมี A*</h3>
+
+    <p>
+      ลองนึกว่าเราหลงอยู่ในโรงเรียนแล้วอยากไปห้องสมุด ถ้าใช้วิธีแบบ Dijkstra
+      เราจะต้องเดินสำรวจ<em>ทุกทิศ</em>โดยไล่จากที่ใกล้ตัวไปไกล จนกว่าจะบังเอิญเจอห้องสมุด
+      ทั้งที่ในความเป็นจริงเรามองออกว่าห้องสมุดอยู่ทาง<em>ขวามือ</em> แล้วทำไมต้องเสียเวลาเดินไปทางซ้ายด้วย
+    </p>
+
+    <div class="callout key">
+      <strong class="callout-title">ไอเดียของ A* ในประโยคเดียว</strong>
+      <p>
+        เวลาเลือกว่าจะสำรวจโหนดไหนต่อ อย่าดูแค่ <strong>"เดินมาไกลแค่ไหนแล้ว"</strong>
+        แต่ให้ดู <strong>"เดินมาไกลแค่ไหนแล้ว + น่าจะเหลืออีกไกลแค่ไหน"</strong>
+      </p>
+    </div>
+
+    <p>
+      คำว่า "น่าจะเหลืออีกไกลแค่ไหน" คือค่าที่เรา<strong>เดา</strong>เอา เรียกว่า
+      <strong>heuristic</strong> (ฮิวริสติก) ในงานแผนที่มีตัวเดาที่ดีอยู่แล้วคือ
+      <strong>ระยะเส้นตรง</strong> จากโหนดนั้นถึงปลายทาง ซึ่งวัดได้ทันทีจากพิกัด
+      โดยไม่ต้องรู้ว่าทางเดินจริงเป็นอย่างไร
+    </p>
+  </section>
+
+  <!-- ============================================================ -->
+  <section class="block" id="fgh">
+    <h3>2. หัวใจคือสูตร f = g + h</h3>
+
+    <div class="formula">
+      <b>f(n)</b> &nbsp;=&nbsp; g(n) &nbsp;+&nbsp; h(n)
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <h4>g(n) — ของจริงที่วัดแล้ว</h4>
+        <p>
+          ระยะสั้นที่สุด<em>เท่าที่รู้ตอนนี้</em>จากจุดเริ่มต้นมาถึงโหนด <code>n</code>
+          ค่านี้คือตัวเดียวกับ <code>dist</code> ของ Dijkstra เป๊ะ ๆ ได้มาจากการบวกน้ำหนักจริงของเส้นทางที่เดินมา
+        </p>
+      </div>
+      <div class="card">
+        <h4>h(n) — การเดาที่เหลือ</h4>
+        <p>
+          ค่าประมาณระยะจากโหนด <code>n</code> ไปถึงเป้าหมาย
+          ในหน้านี้ใช้ <strong>ระยะเส้นตรง</strong> (วัดด้วยทฤษฎีบทพีทาโกรัสจากพิกัด x, y)
+          คำนวณได้ทันทีโดยไม่ต้องค้นหาอะไรเลย
+        </p>
+      </div>
+      <div class="card">
+        <h4>f(n) — คะแนนสำหรับจัดลำดับคิว</h4>
+        <p>
+          ประมาณการความยาวรวมของเส้นทางที่ดีที่สุด<em>ที่ผ่านโหนดนี้</em>
+          A* จะหยิบโหนดที่ <code>f</code> น้อยที่สุดออกมาทำก่อนเสมอ
+        </p>
+      </div>
+      <div class="card">
+        <h4>ถ้าให้ h = 0 จะเกิดอะไรขึ้น</h4>
+        <p>
+          <code>f</code> จะเหลือแค่ <code>g</code> ซึ่งก็คือ <strong>Dijkstra พอดี</strong><br>
+          พูดอีกอย่างคือ Dijkstra เป็นกรณีพิเศษของ A* ที่ "ไม่เดาอะไรเลย"
+          ทั้งสองหน้านี้จึงใช้โค้ดชุดเดียวกันได้
+        </p>
+      </div>
+    </div>
+
+    <h4>ตัวอย่างค่าจริงจากกราฟตัวอย่างในหน้านี้</h4>
+    <p>
+      ที่รอบแรก A* ยืนอยู่ที่ S แล้วมองเห็นเพื่อนบ้าน 5 ตัว ค่าที่ได้เป็นดังนี้ (เป้าหมายคือ H)
+    </p>
+    <div class="tbl-wrap">
+      <table class="tbl">
+        <thead>
+          <tr><th>โหนด</th><th class="num">g (เดินมาแล้ว)</th><th class="num">h (เส้นตรงถึง H)</th><th class="num">f = g + h</th><th>ความหมาย</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>A อาคาร 1</td><td class="num">140</td><td class="num">360</td><td class="num"><strong>500</strong></td><td>น่าสนใจที่สุด → สำรวจก่อน</td></tr>
+          <tr><td>B สนามกีฬา</td><td class="num">140</td><td class="num">363</td><td class="num">503</td><td>ใกล้เคียงกันมาก</td></tr>
+          <tr><td>D ลานกลาง</td><td class="num">300</td><td class="num">230</td><td class="num">530</td><td>ใกล้เป้าหมายแต่เดินมาไกล</td></tr>
+          <tr><td>P ลานจอดรถ</td><td class="num">130</td><td class="num">554</td><td class="num">684</td><td>อยู่หลังจุดเริ่มต้น → แทบไม่ต้องสน</td></tr>
+          <tr><td>Q โรงอาหาร</td><td class="num">130</td><td class="num">556</td><td class="num">686</td><td>เหมือนกัน</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      สังเกตว่า P และ Q อยู่ใกล้จุดเริ่มต้นที่สุด (130 เมตร) ถ้าเป็น Dijkstra จะถูกหยิบไปสำรวจก่อนเพื่อนเลย
+      แต่พอบวก h เข้าไป ค่ากลับพุ่งไปเกือบ 700 เพราะมัน<strong>อยู่คนละทางกับเป้าหมาย</strong>
+      A* จึงเมินทั้งคู่ตลอดการค้นหา
+    </p>
+  </section>
+
+  <!-- ============================================================ -->
+  <section class="block" id="heuristic">
+    <h3>3. heuristic ที่ดีต้องมีคุณสมบัติอะไร</h3>
+
+    <p>
+      การเดาไม่ได้แปลว่ามั่วได้ตามใจ ถ้าเดาผิดวิธี A* จะเร็วขึ้นก็จริงแต่คำตอบอาจไม่ใช่เส้นทางที่สั้นที่สุดอีกต่อไป
+      คุณสมบัติที่ต้องการมีสองข้อ
+    </p>
+
+    <div class="card">
+      <h4>① Admissible — ห้ามเดาเกินจริง (ข้อบังคับ)</h4>
+      <div class="formula" style="margin-top:8px">h(n) &nbsp;≤&nbsp; ระยะจริงที่สั้นที่สุดจาก n ถึงเป้าหมาย</div>
+      <p style="margin-bottom:0">
+        ระยะเส้นตรงผ่านข้อนี้เสมอ เพราะ<strong>ไม่มีทางเดินไหนสั้นกว่าการบินตรง</strong>
+        อย่างมากที่สุดก็เท่ากัน ถ้า h เดาเกินจริงเมื่อไหร่ A* อาจ "ตัดใจ" ทิ้งเส้นทางที่จริง ๆ แล้วดีที่สุดไป
+      </p>
+    </div>
+
+    <div class="card">
+      <h4>② Consistent — เดาแล้วไม่ขัดกันเอง (ทำให้โค้ดง่ายขึ้น)</h4>
+      <div class="formula" style="margin-top:8px">h(u) &nbsp;≤&nbsp; w(u, v) &nbsp;+&nbsp; h(v) &nbsp;&nbsp;สำหรับทุกเส้นเชื่อม</div>
+      <p style="margin-bottom:0">
+        หมายความว่าเดินไปหนึ่งก้าวแล้วค่าประมาณต้องไม่ลดฮวบเกินกว่าระยะที่เดินไปจริง
+        (เป็นรูปแบบหนึ่งของอสมการสามเหลี่ยม) ระยะเส้นตรงก็ผ่านข้อนี้เช่นกัน
+        ผลดีคือเมื่อปิดโหนดไปแล้วไม่ต้องกลับมาเปิดใหม่ (no re-opening) โค้ดจึงเรียบง่ายเท่ากับ Dijkstra
+      </p>
+    </div>
+
+    <div class="callout warn">
+      <strong class="callout-title">ถ้า h แรงเกินไป</strong>
+      <p>
+        การคูณ h ให้ใหญ่ขึ้น (เช่น <code>h × 2</code>) จะทำให้ค้นหาเร็วขึ้นอีก
+        แต่หลุดเงื่อนไข admissible จึงไม่รับประกันคำตอบที่สั้นที่สุดอีกต่อไป — ได้ทางที่ "ใช้ได้" แต่ไม่ใช่ "ดีที่สุด"
+        เทคนิคนี้เรียกว่า weighted A* ซึ่งบางเกมใช้เพื่อแลกความแม่นยำกับความเร็ว
+        ส่วนถ้าสุดโต่งจนดูแต่ h อย่างเดียว (ทิ้ง g) จะกลายเป็น greedy best-first search ที่เร็วมากแต่หลงทางง่าย
+      </p>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section class="block" id="pseudo">
+    <h3>4. Pseudo code และภาพจำลองที่กดเดินได้</h3>
+
+    <p>
+      โครงสร้างเหมือน Dijkstra เกือบทั้งหมด ต่างกันแค่ค่าที่ใช้จัดลำดับในคิวเปลี่ยนจาก <code>g</code> เป็น <code>f = g + h</code>
+      (บรรทัดที่ 3, 16, 17)
+      ในภาพจะเห็น<strong>เส้นประสีเหลือง</strong>ลากจากโหนดที่กำลังพิจารณาไปยังเป้าหมาย นั่นคือค่า h ของโหนดนั้น
+    </p>
+
+    <div class="viz" data-mode="astar">
+      <ol class="pc">
+<li><span class="k">ฟังก์ชัน</span> AStar(กราฟ G, จุดเริ่ม s, เป้าหมาย t, ฟังก์ชันประมาณ h):</li>
+<li>    g[s] ← 0                <span class="c">// ระยะจริงที่เดินมา</span></li>
+<li>    f[s] ← g[s] + h(s, t)   <span class="c">// ค่าจัดลำดับคิว</span></li>
+<li>    open ← คิวลำดับความสำคัญ, ใส่ s ด้วยค่า f[s]</li>
+<li>    closed ← เซตว่าง        <span class="c">// โหนดที่ปิดแล้ว</span></li>
+<li>    <span class="k">ขณะที่</span> open ยังไม่ว่าง:</li>
+<li>        u ← โหนดใน open ที่ <span class="n">f</span> น้อยที่สุด (ดึงออกมา)</li>
+<li>        <span class="k">ถ้า</span> u = t : <span class="k">คืนค่า</span> เส้นทางที่ย้อนรอยจาก prev</li>
+<li>        เพิ่ม u เข้า closed</li>
+<li>        <span class="k">สำหรับทุก</span>เพื่อนบ้าน v ของ u:</li>
+<li>            <span class="k">ถ้า</span> v อยู่ใน closed : ข้ามไปตัวถัดไป</li>
+<li>            alt ← g[u] + w(u, v)</li>
+<li>            <span class="k">ถ้า</span> alt &lt; g[v] :  <span class="c">// relaxation</span></li>
+<li>                g[v] ← alt</li>
+<li>                prev[v] ← u</li>
+<li>                f[v] ← g[v] + <span class="n">h(v, t)</span>  <span class="c">// ต่างจาก Dijkstra</span></li>
+<li>                ใส่ v ลง open ด้วยค่า f[v] (หรืออัปเดตค่าเดิม)</li>
+<li>    <span class="k">คืนค่า</span> "ไม่พบเส้นทาง"</li>
+      </ol>
+    </div>
+
+    <div class="callout tip">
+      <strong class="callout-title">ลองเปรียบเทียบเอง</strong>
+      <p>
+        เปิด<a href="dijkstra.html#pseudo">ภาพจำลองของ Dijkstra</a> ไว้อีกแท็บ แล้วกดเล่นพร้อมกัน
+        จะเห็นชัดว่า Dijkstra วิ่งไปทางซ้าย (P, Q) ตั้งแต่ต้น ส่วน A* ไม่แตะสองโหนดนั้นเลยแม้แต่ครั้งเดียว
+      </p>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section class="block" id="walk">
+    <h3>5. เดินทีละขั้นด้วยมือ</h3>
+
+    <p>
+      โจทย์เดียวกับหน้า Dijkstra คือจาก <b>S (ประตูโรงเรียน)</b> ไป <b>H (ห้องสมุด)</b>
+      แต่คราวนี้จบใน <strong>7 รอบ</strong> แทนที่จะเป็น 11 รอบ
+    </p>
+
+    <div class="tbl-wrap">
+      <table class="tbl">
+        <thead>
+          <tr>
+            <th>รอบ</th>
+            <th>ดึงออกจากคิว</th>
+            <th class="num">g</th>
+            <th class="num">f</th>
+            <th>อัปเดตเพื่อนบ้าน</th>
+            <th>คิวหลังจบรอบ (เรียงตาม f)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>1</td><td>S ประตูโรงเรียน</td><td class="num">0</td><td class="num">450</td>
+              <td>A: g140 f500 · B: g140 f503 · D: g300 f530 · P: g130 f684 · Q: g130 f686</td>
+              <td class="num">A:500, B:503, D:530, P:684, Q:686</td></tr>
+          <tr><td>2</td><td>A อาคาร 1</td><td class="num">140</td><td class="num">500</td>
+              <td>C: g265 f512 · (D ผ่าน A ได้ 305 แย่กว่า 300 → ไม่เปลี่ยน)</td>
+              <td class="num">B:503, C:512, D:530, P:684, Q:686</td></tr>
+          <tr><td>3</td><td>B สนามกีฬา</td><td class="num">140</td><td class="num">503</td>
+              <td>E: g265 f518 · (D ผ่าน B ได้ 300 เท่าเดิม → ไม่เปลี่ยน)</td>
+              <td class="num">C:512, E:518, D:530, P:684, Q:686</td></tr>
+          <tr><td>4</td><td>C อาคาร 2</td><td class="num">265</td><td class="num">512</td>
+              <td>F: g390 f520</td>
+              <td class="num">E:518, F:520, D:530, P:684, Q:686</td></tr>
+          <tr><td>5</td><td>E หอประชุม</td><td class="num">265</td><td class="num">518</td>
+              <td>G: g395 f531</td>
+              <td class="num">F:520, D:530, G:531, P:684, Q:686</td></tr>
+          <tr><td>6</td><td>F อาคาร 3</td><td class="num">390</td><td class="num">520</td>
+              <td>H: g525 f525 &nbsp;(h ของเป้าหมาย = 0 ดังนั้น f = g)</td>
+              <td class="num">H:525, D:530, G:531, P:684, Q:686</td></tr>
+          <tr><td>7</td><td><strong>H ห้องสมุด = เป้าหมาย</strong></td><td class="num">525</td><td class="num">525</td>
+              <td>ดึงเป้าหมายออกจากคิวได้ → จบ</td>
+              <td class="num">เหลือ D, G, P, Q ที่ไม่เคยถูกสำรวจ</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="formula">
+      ผลลัพธ์ <b>S → A → C → F → H</b> รวม <b>525 เมตร</b> — เส้นทางเดียวกับ Dijkstra เป๊ะ
+    </div>
+
+    <h4>ทำไมหยุดตอนดึง H ออกมาได้เลย</h4>
+    <p>
+      ตอนจบรอบที่ 6 คิวมี <code>H:525, D:530, G:531, P:684, Q:686</code>
+      ค่า <code>f</code> ของ H น้อยที่สุด และเพราะ h ไม่เคยเดาเกินจริง
+      ค่า <code>f</code> ของโหนดอื่น ๆ จึงเป็น "ราคาต่ำสุดที่เป็นไปได้" ของเส้นทางที่ผ่านโหนดนั้น
+      เมื่อทุกตัวมีราคาขั้นต่ำมากกว่า 525 อยู่แล้ว ก็ไม่มีทางไหนที่จะดีกว่า 525 ได้อีก จึงหยุดได้อย่างมั่นใจ
+    </p>
+
+    <div class="callout key">
+      <strong class="callout-title">นี่คือเหตุผลที่ admissible สำคัญ</strong>
+      <p>
+        ถ้า h เดาเกินจริงแม้แต่นิดเดียว ตรรกะข้างบนจะพัง เพราะโหนดที่ดูเหมือน "แพงเกิน 525"
+        อาจซ่อนเส้นทางที่จริง ๆ แล้วถูกกว่าไว้ — A* จะหยุดเร็วเกินไปแล้วคืนคำตอบที่ไม่ใช่ทางที่สั้นที่สุด
+      </p>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section class="block" id="compare">
+    <h3>6. เทียบกับ Dijkstra ตรง ๆ</h3>
+
+    <div class="compare">
+      <div><b data-stat="dijkstra-expanded">11</b><small>โหนดที่ Dijkstra สำรวจ</small></div>
+      <div><b data-stat="astar-expanded">7</b><small>โหนดที่ A* สำรวจ</small></div>
+      <div><b data-stat="saved-percent">36</b><small>% ของงานที่ประหยัดได้</small></div>
+      <div><b data-stat="cost">525</b><small>ระยะของคำตอบ (เท่ากันทั้งคู่)</small></div>
+    </div>
+
+    <div class="tbl-wrap">
+      <table class="tbl">
+        <thead><tr><th>หัวข้อ</th><th>Dijkstra</th><th>A* Search</th></tr></thead>
+        <tbody>
+          <tr><td>ค่าที่ใช้จัดลำดับคิว</td><td>g (ระยะที่เดินมาแล้ว)</td><td>f = g + h</td></tr>
+          <tr><td>รู้ตำแหน่งเป้าหมายไหม</td><td>ไม่รู้ ค้นหาแบบแผ่ทุกทิศ</td><td>รู้คร่าว ๆ ผ่านค่า h</td></tr>
+          <tr><td>ได้เส้นทางสั้นที่สุดไหม</td><td>ได้เสมอ (ถ้าน้ำหนักไม่ติดลบ)</td><td>ได้เสมอ ถ้า h เป็น admissible</td></tr>
+          <tr><td>จำนวนโหนดที่สำรวจ</td><td>มาก</td><td>น้อยกว่า ยิ่ง h แม่นยิ่งน้อย</td></tr>
+          <tr><td>ต้องมีพิกัดของโหนดไหม</td><td>ไม่ต้อง</td><td>ต้องมี (หรือมีวิธีประมาณระยะแบบอื่น)</td></tr>
+          <tr><td>เหมาะกับ</td><td>หาระยะไปทุกจุดพร้อมกัน เช่น "หาที่ใกล้ที่สุด"</td><td>หาเส้นทางจากจุด A ไปจุด B จุดเดียว</td></tr>
+          <tr><td>ความซับซ้อน</td><td>O((V + E) log V)</td><td>กรณีแย่สุดเท่ากัน แต่ในทางปฏิบัติเร็วกว่ามาก</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout">
+      <strong class="callout-title">ข้อควรจำ</strong>
+      <p>
+        A* ไม่ได้ "ฉลาดกว่า" Dijkstra ในเชิงคุณภาพคำตอบ — คำตอบเหมือนกันทุกประการ
+        สิ่งที่ต่างคือ<strong>ปริมาณงานระหว่างทาง</strong>เท่านั้น และ A* จะเก่งได้ก็ต่อเมื่อมี h ที่ดีให้ใช้
+        ถ้าไม่มีข้อมูลพิกัดหรือประมาณระยะไม่ได้เลย ก็ต้องกลับไปใช้ Dijkstra
+      </p>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section class="block" id="project">
+    <h3>7. ใช้ในโปรเจกต์นี้อย่างไร</h3>
+
+    <p>
+      A* เป็นอัลกอริทึม<strong>ค่าเริ่มต้น</strong>ของเว็บแผนที่นี้ อยู่ในเมธอด <code>shortestPath()</code>
+      ของไฟล์ <code>js/graph.js</code> ส่วน heuristic อยู่ในเมธอด <code>heuristic()</code> ไฟล์เดียวกัน
+    </p>
+
+    <h4>heuristic ของอาคารหลายชั้น</h4>
+    <p>
+      แผนที่จริงเป็น 3 มิติ เพราะมีการขึ้นลงระหว่างชั้น ค่า h จึงเป็นระยะเส้นตรงแบบ 3 มิติ
+      โดยแปลงหมายเลขชั้นเป็นความสูงจริงก่อน (ชั้นละ 3.8 เมตร)
+    </p>
+    <div class="formula">
+      h &nbsp;=&nbsp; √( Δx² + Δy² + (Δชั้น × 3.8)² )
+    </div>
+
+    <h4>เมื่อผู้ใช้เลือกเกณฑ์ "เวลาน้อยสุด"</h4>
+    <p>
+      ถ้าน้ำหนักของเส้นเชื่อมเป็นวินาที ค่า h ที่เป็นเมตรจะเทียบกันไม่ได้ ต้องแปลงหน่วยให้ตรงกันก่อน
+      โดยหารด้วย<strong>ความเร็วเดินสูงสุดที่เป็นไปได้</strong> (1.45 เมตร/วินาที)
+      การใช้ความเร็วสูงสุดเป็นตัวหารทำให้ค่าที่ได้เป็นเวลาที่<em>น้อยที่สุดเท่าที่เป็นไปได้</em>
+      จึงยังไม่เกินค่าจริง = ยังเป็น admissible อยู่
+    </p>
+    <div class="formula">
+      h<sub>เวลา</sub> &nbsp;=&nbsp; ระยะเส้นตรง 3 มิติ &nbsp;÷&nbsp; 1.45 &nbsp;&nbsp;<span style="opacity:.7">(วินาที)</span>
+    </div>
+
+    <div class="callout warn">
+      <strong class="callout-title">รายละเอียดที่ผิดกันบ่อยในโหมดเวลา</strong>
+      <p>
+        ถ้าเผลอหารด้วยความเร็ว<em>เฉลี่ย</em> (1.3) แทนความเร็วสูงสุด ค่า h จะสูงกว่าความจริงในบางเส้นทาง
+        กลายเป็นเดาเกินจริงและอาจได้เส้นทางที่ไม่ใช่เร็วที่สุด นี่คือเหตุผลที่ค่าคงที่
+        <code>MAX_SPEED</code> ใน <code>js/graph.js</code> ตั้งไว้สูงกว่าความเร็วเดินที่ใช้คำนวณเวลาจริง
+      </p>
+    </div>
+
+    <h4>สิ่งที่เว็บนี้ทำเพิ่มจาก pseudo code มาตรฐาน</h4>
+    <ul>
+      <li><strong>Binary heap</strong> (คลาส <code>MinHeap</code>) แทนคิวแบบไล่หาทีละตัว</li>
+      <li><strong>Lazy deletion</strong> — แทนที่จะไล่แก้ค่าเดิมในคิว จะใส่รายการใหม่ทับลงไปแล้วข้ามรายการเก่าที่เจอทีหลัง
+        ซึ่งง่ายกว่าและเร็วกว่าในทางปฏิบัติ</li>
+      <li><strong>ตัวกรองเส้นเชื่อม</strong> — ตัวเลือกอย่าง "เลี่ยงบันได" ทำงานตอน relax
+        คือข้ามเส้นเชื่อมที่ไม่อนุญาตไปเลย โดยไม่ต้องสร้างกราฟใหม่</li>
+      <li><strong>สถิติการทำงาน</strong> — เก็บจำนวนโหนดที่สำรวจ (<code>visited</code>) และจำนวนครั้งที่ relax
+        เพื่อแสดงผลเทียบกันได้ระหว่าง A* กับ Dijkstra</li>
+    </ul>
+
+    <div class="callout tip">
+      <strong class="callout-title">ลองเองได้</strong>
+      <p>
+        เปิด<a href="index.html">หน้าแผนที่ 3 มิติ</a> เลือกเส้นทางข้ามอาคาร แล้วสลับช่อง "อัลกอริทึม"
+        ดูตัวเลขจำนวนโหนดที่สำรวจในผลลัพธ์ ยิ่งจุดเริ่มต้นกับปลายทางอยู่ไกลกัน ส่วนต่างจะยิ่งชัด
+      </p>
+    </div>
+  </section>
+
+  <nav class="next-nav">
+    <a href="dijkstra.html">
+      <small>ย้อนกลับไปอ่าน</small>
+      <strong>Dijkstra's Algorithm →</strong>
+      <small>รากฐานของ A* — เข้าใจ relaxation และเหตุผลที่การเลือกค่าน้อยสุดก่อนทำให้คำตอบถูกต้องเสมอ</small>
+    </a>
+    <a href="index.html">
+      <small>กลับไป</small>
+      <strong>แผนที่กราฟ 3 มิติ →</strong>
+      <small>ทดลองค้นหาเส้นทางบนกราฟจริงของอาคารเรียน พร้อมสลับอัลกอริทึมได้</small>
+    </a>
+  </nav>
+
+  <p class="doc-foot">
+    ภาพจำลองในหน้านี้รันอัลกอริทึมจริงในเบราว์เซอร์ ไม่ได้เป็นภาพที่อัดไว้ล่วงหน้า
+    โค้ดอยู่ที่ <code>js/learn-viz.js</code> ส่วนอัลกอริทึมที่ใช้งานจริงอยู่ที่ <code>js/graph.js</code>
+  </p>
+
+</main>
+
+<script src="js/learn-viz.js"></script>
+</body>
+</html>
