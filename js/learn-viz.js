@@ -267,6 +267,20 @@
    * ตัวจำลอง
    * ============================================================= */
   class Visualizer {
+    /**
+     * เลื่อนให้เห็นรายการที่ต้องการ โดยเลื่อน "เฉพาะกล่องแผง" ที่มันอยู่
+     * ห้ามใช้ scrollIntoView เพราะมันเลื่อนบรรพบุรุษทุกชั้นรวมถึงทั้งหน้าเว็บด้วย
+     * ซึ่งทำให้หน้าเด้งลงไปที่ตัวจำลองทันทีที่เปิดหน้ามา
+     */
+    static keepInView(el) {
+      const box = el && el.closest('.viz-panel-body');
+      if (!box) return;
+      const r = el.getBoundingClientRect();
+      const b = box.getBoundingClientRect();
+      if (r.top < b.top) box.scrollTop -= (b.top - r.top);
+      else if (r.bottom > b.bottom) box.scrollTop += (r.bottom - b.bottom);
+    }
+
     constructor(root) {
       this.root = root;
       this.mode = root.dataset.mode === 'astar' ? 'astar' : 'dijkstra';
@@ -567,6 +581,7 @@
       this.pcLines.forEach((li, i) => {
         li.classList.toggle('is-hl', hl.has(i + 1));
       });
+      Visualizer.keepInView(this.pcLines.find((li) => li.classList.contains('is-hl')));
 
       /* ตาราง */
       this.renderTable(st);
@@ -590,8 +605,7 @@
 
       /* บันทึก */
       this.logEls.forEach((li, i) => li.classList.toggle('is-now', i === this.index));
-      const now = this.logEls[this.index];
-      if (now) now.scrollIntoView({ block: 'nearest' });
+      Visualizer.keepInView(this.logEls[this.index]);
 
       /* ปุ่ม */
       this.controls.querySelector('[data-act="prev"]').disabled = this.index === 0;
@@ -652,9 +666,44 @@
     });
   }
 
+  /* =============================================================
+   * เปิดหน้ามาให้เริ่มอ่านจากต้นเพจเสมอ
+   * ปกติเบราว์เซอร์จะจำตำแหน่งที่เคยเลื่อนไว้ แล้วเลื่อนกลับไปที่เดิมให้เอง
+   * เมื่อเปิดหน้าซ้ำ กดย้อนกลับ หรือรีเฟรช ทำให้ผู้อ่านโผล่กลางหน้า
+   * จึงปิดพฤติกรรมนั้นทิ้ง ยกเว้นกรณีเปิดด้วยลิงก์ที่เจาะจงหัวข้อ
+   * เช่น dijkstra.html#pseudo ซึ่งตั้งใจให้กระโดดไปหัวข้อนั้นจริง ๆ
+   * ============================================================= */
+  function startAtTop() {
+    if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+
+    /* ถ้าเปิดมาพร้อมหัวข้อ ให้ไปที่หัวข้อนั้นเองหลังหน้าโหลดครบ
+     * (ทำเองเพราะความสูงของหน้าเปลี่ยนหลังฟอนต์โหลดเสร็จ ตำแหน่งที่เบราว์เซอร์
+     *  กระโดดไปตั้งแต่แรกจึงมักคลาดเคลื่อน) */
+    let target = null;
+    try {
+      target = location.hash.length > 1 ? document.querySelector(location.hash) : null;
+    } catch (err) {
+      target = null;   // hash ที่ไม่ใช่ selector เช่น #from=...&to=...
+    }
+    if (target) {
+      window.addEventListener('load', () => target.scrollIntoView(), { once: true });
+      return;
+    }
+
+    const toTop = () => {
+      // behavior: 'instant' เพื่อไม่ให้ไถลตาม scroll-behavior: smooth ของ CSS
+      try { window.scrollTo({ top: 0, left: 0, behavior: 'instant' }); }
+      catch (err) { window.scrollTo(0, 0); }
+    };
+    toTop();
+    // เรียกอีกครั้งหลังฟอนต์และภาพโหลดครบ เพราะความสูงของหน้าเปลี่ยนได้อีก
+    window.addEventListener('load', toTop, { once: true });
+  }
+
   window.LearnViz = {
     NODES, EDGES, START, GOAL, record, straightLine,
     init() {
+      startAtTop();
       document.querySelectorAll('.viz[data-mode]').forEach((el) => new Visualizer(el));
       applyStats();
     },
