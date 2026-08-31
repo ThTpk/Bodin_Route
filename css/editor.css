@@ -1,0 +1,416 @@
+/* =============================================================
+ * editor.css — ส่วนเพิ่มเติมของหน้า "ป้อนข้อมูล JSON"
+ * ใช้คู่กับ learn.css (โหลด learn.css ก่อนเสมอ)
+ * ตัวแปรสี --bg --surface --border ฯลฯ มาจาก learn.css
+ * ============================================================= */
+
+/* ---------------------------------------------------------------
+ * โครงสองคอลัมน์: ซ้าย = ช่องแก้ไข JSON, ขวา = ภาพ 3 มิติ
+ * ------------------------------------------------------------- */
+.lab {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 1040px) {
+  .lab { grid-template-columns: minmax(0, 1fr); }
+}
+
+.lab-pane {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  min-width: 0;
+}
+
+.lab-pane > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+}
+.lab-pane > header h4 { margin: 0; font-size: 14.5px; font-weight: 600; }
+.lab-pane > header .hint { font-size: 12.5px; color: var(--text-muted); }
+
+/* ---------------------------- แท็บเลือกไฟล์ ---------------------------- */
+.file-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 10px 12px 0;
+  flex-wrap: wrap;
+}
+.file-tabs button {
+  font: inherit;
+  font-size: 13.5px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 12px;
+  border: 1px solid var(--border);
+  border-bottom-color: transparent;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  background: var(--surface-2);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.file-tabs button:hover { color: var(--text); }
+.file-tabs button.is-on {
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+  border-color: var(--border);
+  box-shadow: inset 0 2px 0 var(--navy-600);
+}
+.file-tabs .badge {
+  min-width: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-family: var(--mono);
+  font-size: 11.5px;
+  line-height: 17px;
+  text-align: center;
+}
+.file-tabs button.is-on .badge { background: var(--surface-2); }
+.file-tabs .badge.is-bad { background: var(--bad); border-color: var(--bad); color: #fff; }
+
+/* ---------------------------- ช่องพิมพ์ JSON ---------------------------- */
+.code-wrap {
+  position: relative;
+  display: flex;
+  border-top: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.gutter {
+  flex: 0 0 auto;
+  padding: 12px 8px 12px 12px;
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.62;
+  text-align: right;
+  color: var(--text-muted);
+  opacity: .6;
+  background: var(--surface-2);
+  border-right: 1px solid var(--border);
+  overflow: hidden;
+  user-select: none;
+  white-space: pre;
+}
+.gutter b { display: block; font-weight: 400; }
+.gutter b.is-bad { color: var(--bad); font-weight: 700; opacity: 1; }
+
+.code-wrap textarea {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 430px;
+  padding: 12px;
+  margin: 0;
+  border: 0;
+  outline: none;
+  resize: vertical;
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.62;
+  tab-size: 2;
+  white-space: pre;
+  overflow: auto;
+}
+.code-wrap textarea:focus { box-shadow: inset 3px 0 0 var(--navy-600); }
+.code-wrap textarea::selection { background: #fde9bd; color: #16203a; }
+
+/* ---------------------------- แถบปุ่ม ---------------------------- */
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--border);
+  background: var(--surface-2);
+}
+.toolbar button {
+  font: inherit;
+  font-size: 13px;
+  padding: 7px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+.toolbar button:hover:not(:disabled) { border-color: var(--navy-600); color: var(--navy-600); }
+.toolbar button:disabled { opacity: .45; cursor: default; }
+.toolbar button.primary {
+  background: var(--navy-800);
+  border-color: var(--navy-800);
+  color: #fff;
+  font-weight: 600;
+}
+.toolbar button.primary:hover:not(:disabled) { background: var(--navy-600); border-color: var(--navy-600); color: #fff; }
+.toolbar .spacer { flex: 1 1 auto; }
+
+/* ---------------------------- รายงานผลตรวจ ---------------------------- */
+.report { padding: 0 12px 12px; }
+
+.report-status {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 12px 0 0;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 13.5px;
+  font-weight: 600;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+}
+.report-status .dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--text-muted); flex: 0 0 auto;
+}
+.report-status.is-ok { color: var(--good); border-color: color-mix(in srgb, var(--good) 45%, var(--border)); }
+.report-status.is-ok .dot { background: var(--good); }
+.report-status.is-warn { color: #b45309; border-color: var(--open); }
+.report-status.is-warn .dot { background: var(--open); }
+.report-status.is-bad { color: var(--bad); border-color: var(--bad); }
+.report-status.is-bad .dot { background: var(--bad); }
+.report-status small { font-weight: 400; color: var(--text-muted); }
+
+.issues { list-style: none; margin: 10px 0 0; padding: 0; max-height: 240px; overflow: auto; }
+.issues li {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  padding: 6px 9px;
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--bad);
+  background: var(--surface-2);
+  font-size: 13px;
+  line-height: 1.55;
+  margin-bottom: 5px;
+}
+.issues li.warn { border-left-color: var(--open); }
+.issues li button.jump {
+  font: inherit;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  flex: 0 0 auto;
+  padding: 1px 7px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.issues li button.jump:hover { border-color: var(--navy-600); color: var(--navy-600); }
+.issues li .where { flex: 0 0 auto; font-family: var(--mono); font-size: 11.5px; color: var(--text-muted); }
+
+/* ---------------------------- ภาพ 3 มิติ ---------------------------- */
+.stage {
+  position: relative;
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(41, 82, 200, .08), transparent 70%),
+    var(--surface-2);
+  border-bottom: 1px solid var(--border);
+}
+.stage canvas {
+  display: block;
+  width: 100%;
+  height: 430px;
+  touch-action: none;
+  outline: none;
+}
+.stage canvas.is-dragging { cursor: grabbing; }
+.stage.is-stale::after {
+  content: "ภาพนี้มาจาก JSON ที่ถูกต้องครั้งล่าสุด — แก้ข้อผิดพลาดก่อนจึงจะวาดใหม่";
+  position: absolute;
+  left: 10px; right: 10px; top: 10px;
+  padding: 7px 11px;
+  border-radius: var(--radius-sm);
+  background: var(--bad);
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.stage-hint {
+  padding: 8px 12px;
+  font-size: 12.3px;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.view-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 12px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+}
+.view-tools button,
+.view-tools select {
+  font: inherit;
+  font-size: 12.8px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+.view-tools button:hover { border-color: var(--navy-600); color: var(--navy-600); }
+.view-tools button.is-on {
+  background: var(--navy-800);
+  border-color: var(--navy-800);
+  color: #fff;
+}
+.view-tools label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.8px;
+  color: var(--text-muted);
+}
+.view-tools input[type="range"] { width: 96px; }
+
+/* ---------------------------- สรุปสถิติ + สัญลักษณ์ ---------------------------- */
+.stat-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.stat-row div { background: var(--surface); padding: 9px 10px; text-align: center; }
+.stat-row b { display: block; font-family: var(--mono); font-size: 20px; line-height: 1.25; color: var(--navy-600); }
+.stat-row small { font-size: 11.8px; color: var(--text-muted); }
+
+.chips { display: flex; flex-wrap: wrap; gap: 7px; padding: 10px 12px; }
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  font-size: 12.3px;
+  color: var(--text-muted);
+}
+.chip i { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; }
+.chip.edge i { width: 18px; height: 4px; border-radius: 3px; }
+
+/* ---------------------------- รายละเอียดโหนดที่คลิก ---------------------------- */
+.picked {
+  padding: 10px 12px;
+  border-top: 1px solid var(--border);
+  font-size: 13.2px;
+}
+.picked[hidden] { display: none; }
+.picked h5 { margin: 0 0 4px; font-size: 14px; }
+.picked p { margin: 0 0 6px; color: var(--text-muted); font-size: 12.8px; }
+.picked pre {
+  margin: 0;
+  padding: 9px 11px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  font-family: var(--mono);
+  font-size: 12px;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* ---------------------------- แผงทดลองหาเส้นทาง ---------------------------- */
+.trial {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--border);
+  background: var(--surface-2);
+}
+.trial select {
+  font: inherit;
+  font-size: 12.8px;
+  max-width: 190px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+}
+.trial button {
+  font: inherit;
+  font-size: 12.8px;
+  padding: 6px 12px;
+  border: 1px solid var(--navy-800);
+  border-radius: var(--radius-sm);
+  background: var(--navy-800);
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+.trial button:hover { background: var(--navy-600); border-color: var(--navy-600); }
+.trial-out { width: 100%; margin: 0; font-size: 12.8px; color: var(--text-muted); }
+.trial-out b { color: var(--route); font-family: var(--mono); }
+
+/* ---------------------------- ตารางฟิลด์ ---------------------------- */
+.tbl td code, .tbl th code { white-space: nowrap; }
+.tbl .req { color: var(--bad); font-weight: 700; }
+.tbl .opt { color: var(--text-muted); }
+
+/* กล่องแจ้งเตือนเล็ก ๆ ท้ายการกระทำ */
+.toast-mini {
+  position: fixed;
+  left: 50%;
+  bottom: 26px;
+  transform: translate(-50%, 14px);
+  z-index: 60;
+  padding: 9px 16px;
+  border-radius: 999px;
+  background: var(--navy-900);
+  color: #fff;
+  font-size: 13.2px;
+  box-shadow: var(--shadow-md);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .18s, transform .18s;
+}
+.toast-mini.is-on { opacity: 1; transform: translate(-50%, 0); }
+
+/* ---------------------------------------------------------------
+ * ส่วนที่ทับค่าจาก learn.css และกฎเบ็ดเตล็ด
+ * ------------------------------------------------------------- */
+
+/* หน้านี้มีสองคอลัมน์ จึงกว้างกว่าหน้าอธิบายอัลกอริทึม
+ * ย่อหน้ายังถูกจำกัดที่ 78ch จาก learn.css อยู่ จึงไม่กระทบการอ่าน */
+.doc { max-width: 1320px; }
+
+/* [hidden] ใช้ไม่ได้กับอิลิเมนต์ที่ตั้ง display เอง ต้องสั่งซ่อนตรง ๆ */
+.code-wrap[hidden] { display: none; }
+.toolbar button[hidden] { display: none; }
+
+/* แถบเลือกชั้นยังว่างอยู่ก่อนวาดภาพครั้งแรก */
+.view-tools:empty { display: none; }

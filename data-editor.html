@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ป้อนข้อมูล JSON — สอนเขียนไฟล์ข้อมูลของแผนผัง 3 มิติ</title>
+<meta name="description" content="สอนวิธีเขียนไฟล์ buildings.json, nodes.json และ edges.json ที่ใช้สร้างแผนผัง 3 มิติ พร้อมช่องแก้ไข JSON บนหน้าเว็บที่วาดภาพโหนดและเส้นเชื่อมให้ทันที">
+<meta name="theme-color" content="#1e3a8a">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/learn.css">
+<link rel="stylesheet" href="css/editor.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧭</text></svg>">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark" aria-hidden="true">🧭</span>
+    <div class="brand-text">
+      <h1>ป้อนข้อมูล JSON</h1>
+      <p>ไฟล์ข้อมูลสามไฟล์ที่ประกอบกันเป็นแผนผัง 3 มิติ</p>
+    </div>
+  </div>
+  <nav class="topbar-actions">
+    <a href="index.html">← กลับหน้าแผนที่</a>
+    <a href="data-editor.html" class="is-current">ป้อนข้อมูล</a>
+    <a href="dijkstra.html">Dijkstra</a>
+    <a href="astar.html">A* Search</a>
+  </nav>
+</header>
+
+<main class="doc">
+
+  <div class="hero">
+    <p class="eyebrow">Data Format Workshop</p>
+    <h2>เขียนไฟล์ข้อมูลเอง แล้วเห็นผังของตัวเองลอยขึ้นมาทันที</h2>
+    <p>
+      แผนผัง 3 มิติในเว็บนี้ไม่ได้วาดด้วยมือ แต่<strong>คำนวณขึ้นจากไฟล์ข้อความล้วน ๆ สามไฟล์</strong>
+      หน้านี้จะพาไปดูว่าแต่ละไฟล์เก็บอะไร ต้องเขียนอย่างไร แล้วเปิดช่องให้แก้ JSON ได้บนหน้าเว็บโดยตรง
+      ทุกครั้งที่พิมพ์เสร็จ ระบบจะตรวจความถูกต้องและวาดโหนดกับเส้นเชื่อมใหม่ให้ทันที
+    </p>
+    <div class="hero-tags">
+      <span class="tag">ตัวอย่างเริ่มต้น 3 อาคาร × 3 ชั้น × 2 ห้อง</span>
+      <span class="tag">ตรวจข้อมูลด้วยกติกาเดียวกับ <code>validate_data.py</code></span>
+      <span class="tag">วาดด้วย <code>js/view3d.js</code> ตัวเดียวกับหน้าจริง</span>
+      <span class="tag">ดาวน์โหลดไฟล์ที่แก้แล้วได้</span>
+    </div>
+  </div>
+
+  <ul class="toc">
+    <li><a href="#overview">1. สามไฟล์ทำหน้าที่อะไร</a></li>
+    <li><a href="#lab">2. ห้องทดลอง — แก้แล้วเห็นผลทันที</a></li>
+    <li><a href="#buildings">3. buildings.json</a></li>
+    <li><a href="#nodes">4. nodes.json</a></li>
+    <li><a href="#edges">5. edges.json</a></li>
+    <li><a href="#drill">6. แบบฝึกหัด</a></li>
+    <li><a href="#mistakes">7. ข้อผิดพลาดที่พบบ่อย</a></li>
+    <li><a href="#ship">8. เอาไปใช้จริง</a></li>
+  </ul>
+
+  <!-- ============================================================ -->
+  <section class="block" id="overview">
+    <h3>1. สามไฟล์ทำหน้าที่อะไร</h3>
+
+    <p>
+      ระบบมองโรงเรียนเป็น <strong>กราฟ (graph)</strong> ไม่ใช่รูปภาพ
+      กราฟมีแค่สองอย่างคือ "จุด" กับ "เส้นที่ต่อระหว่างจุด"
+      ไฟล์ข้อมูลจึงแบ่งตามนั้นพอดี แล้วเพิ่มไฟล์ที่สามไว้บอกว่าจุดพวกนั้นอยู่ในอาคารหลังไหน
+    </p>
+
+    <div class="grid-2">
+      <div class="card">
+        <h4>① <code>data/buildings.json</code> — ทะเบียนอาคาร</h4>
+        <p>
+          บอกว่ามีอาคารอะไรบ้าง ชื่ออะไร สีอะไร สูงกี่ชั้น
+          และค่ากลางของทั้งผัง เช่นความสูงต่อชั้น
+          <em>ไม่มีผลต่อการหาเส้นทาง</em> แต่ทำให้ภาพและคำบอกทางอ่านรู้เรื่อง
+        </p>
+      </div>
+      <div class="card">
+        <h4>② <code>data/nodes.json</code> — จุดทั้งหมด</h4>
+        <p>
+          หนึ่งบรรทัดคือหนึ่งจุดที่คนไปยืนได้ — ห้องเรียน บันได ทางเชื่อม
+          แต่ละจุดมี <code>id</code> ที่ห้ามซ้ำ และมีพิกัด <code>x</code>, <code>y</code>
+          กับหมายเลข <code>floor</code> ที่บอกว่าอยู่ชั้นไหน
+        </p>
+      </div>
+      <div class="card">
+        <h4>③ <code>data/edges.json</code> — เส้นที่ต่อระหว่างจุด</h4>
+        <p>
+          บอกว่าเดินจากจุดไหนไปจุดไหนได้ พร้อม <strong>น้ำหนัก</strong>
+          คือ <code>distance</code> (เมตร) และ <code>time</code> (วินาที)
+          นี่คือไฟล์ที่ Dijkstra กับ A* ใช้จริง ๆ ในการหาเส้นทางสั้นที่สุด
+        </p>
+      </div>
+      <div class="card">
+        <h4>ที่ไม่มีในไฟล์: แกนสูง</h4>
+        <p>
+          ไม่มีฟิลด์ <code>z</code> ที่ไหนเลย เพราะความสูงถูก<strong>คำนวณ</strong>จาก
+          <code>floor</code> ตอนวาดภาพ (<code>z = (floor − ชั้นล่างสุด) × ระยะห่างระหว่างชั้น</code>)
+          จึงปรับระยะห่างบนภาพได้โดยไม่ต้องแตะข้อมูลเลย
+        </p>
+      </div>
+    </div>
+
+    <div class="callout key">
+      <strong class="callout-title">กฎเหล็กข้อเดียวที่ต้องจำ</strong>
+      <p>
+        <code>edges.json</code> อ้างถึงโหนดด้วย <code>id</code> เท่านั้น
+        ถ้าพิมพ์ <code>id</code> ผิดแม้ตัวเดียว เส้นนั้นจะหายไปทั้งเส้น
+        และถ้าเพิ่มโหนดใหม่แต่ลืมเพิ่มเส้นเชื่อม โหนดนั้นจะกลายเป็นจุดลอยที่เดินไปไม่ถึง
+      </p>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section class="block" id="lab">
+    <h3>2. ห้องทดลอง — แก้แล้วเห็นผลทันที</h3>
+
+    <p>
+      ช่องซ้ายคือไฟล์ทั้งสาม สลับดูได้ด้วยแท็บด้านบน แก้ได้ตามใจชอบ
+      พอหยุดพิมพ์ราวครึ่งวินาที ระบบจะตรวจให้แล้ววาดภาพขวาใหม่ทันที
+      ถ้ามีข้อผิดพลาด ภาพจะค้างอยู่ที่ข้อมูลชุดที่ถูกต้องครั้งล่าสุด
+      และรายการข้อผิดพลาดจะบอกเลขบรรทัดให้กดกระโดดไปแก้ได้เลย
+    </p>
+    <p>
+      เริ่มต้นให้เป็น <strong>3 อาคาร อาคารละ 3 ชั้น ชั้นละ 2 ห้อง</strong>
+      แต่ละชั้นมีบันได 2 ตำแหน่งขนาบห้องไว้ และมีทางเชื่อมระหว่างอาคาร 2 จุด
+      (อาคาร 1–2 ที่ชั้น 2 กับอาคาร 2–3 ที่ชั้น 3)
+    </p>
+
+    <div class="lab">
+
+      <!-- ---------------- ช่องแก้ไข JSON ---------------- -->
+      <div class="lab-pane">
+        <div class="file-tabs" role="tablist" aria-label="เลือกไฟล์ที่จะแก้">
+          <button type="button" id="tab-buildings" role="tab" aria-selected="false" aria-controls="pane-buildings">
+            buildings.json <span class="badge">–</span>
+          </button>
+          <button type="button" id="tab-nodes" role="tab" aria-selected="true" aria-controls="pane-nodes">
+            nodes.json <span class="badge">–</span>
+          </button>
+          <button type="button" id="tab-edges" role="tab" aria-selected="false" aria-controls="pane-edges">
+            edges.json <span class="badge">–</span>
+          </button>
+        </div>
+
+        <div class="code-wrap" id="pane-buildings" role="tabpanel" hidden>
+          <div class="gutter" id="gutter-buildings" aria-hidden="true"></div>
+          <textarea id="ed-buildings" spellcheck="false" autocapitalize="off" autocorrect="off"
+                    aria-label="เนื้อหาไฟล์ buildings.json"></textarea>
+        </div>
+        <div class="code-wrap" id="pane-nodes" role="tabpanel">
+          <div class="gutter" id="gutter-nodes" aria-hidden="true"></div>
+          <textarea id="ed-nodes" spellcheck="false" autocapitalize="off" autocorrect="off"
+                    aria-label="เนื้อหาไฟล์ nodes.json"></textarea>
+        </div>
+        <div class="code-wrap" id="pane-edges" role="tabpanel" hidden>
+          <div class="gutter" id="gutter-edges" aria-hidden="true"></div>
+          <textarea id="ed-edges" spellcheck="false" autocapitalize="off" autocorrect="off"
+                    aria-label="เนื้อหาไฟล์ edges.json"></textarea>
+        </div>
+
+        <div class="toolbar">
+          <button type="button" id="btn-apply" class="primary">ตรวจสอบและวาดใหม่</button>
+          <button type="button" id="btn-format" title="จัดให้สมาชิกในอาร์เรย์อยู่บรรทัดละหนึ่งรายการ">จัดรูปแบบ</button>
+          <button type="button" id="btn-copy">คัดลอกไฟล์นี้</button>
+          <button type="button" id="btn-reset">คืนค่าตัวอย่างเริ่มต้น</button>
+          <button type="button" id="btn-load-real" title="ดึงไฟล์จริงจากโฟลเดอร์ data/ มาดู">โหลดข้อมูลจริง 7 อาคาร</button>
+        </div>
+
+        <div class="toolbar">
+          <span style="font-size:13px;color:var(--text-muted);align-self:center">ดาวน์โหลด:</span>
+          <button type="button" id="dl-buildings">⬇ buildings.json</button>
+          <button type="button" id="dl-nodes">⬇ nodes.json</button>
+          <button type="button" id="dl-edges">⬇ edges.json</button>
+        </div>
+
+        <div class="toolbar" id="snippets">
+          <span style="font-size:13px;color:var(--text-muted);align-self:center">
+            เพิ่มรายการตัวอย่างท้าย <b id="current-file">nodes.json</b>:
+          </span>
+
+          <button type="button" data-for="buildings" data-snippet='{"id": "b4", "name": "อาคาร 4", "shortName": "อ.4", "code": "4", "floors": [1, 2, 3], "color": "#ea580c", "rect": [-2.0, 75.0, 14.0, 81.0], "axis": "x", "zone": "ตัวอย่าง", "description": "อาคารที่เพิ่มใหม่"}'>+ อาคารใหม่</button>
+
+          <button type="button" data-for="nodes" data-snippet='{"id": "b1-f1-r03", "name": "ห้อง 1103", "type": "classroom", "building": "b1", "floor": 1, "x": 16.0, "y": 0.0, "description": "ห้องที่เพิ่มใหม่", "aliases": ["1103"]}'>+ ห้องเรียน</button>
+          <button type="button" data-for="nodes" data-snippet='{"id": "b1-f1-stC", "name": "บันได 1ค ชั้น 1", "type": "stairs", "building": "b1", "floor": 1, "x": 20.0, "y": 0.0, "description": "บันไดที่เพิ่มใหม่", "aliases": ["บันได1ค"]}'>+ บันได</button>
+          <button type="button" data-for="nodes" data-snippet='{"id": "br-b1b3-f1", "name": "ทางเชื่อมอาคาร 1-3 (ชั้น 1)", "type": "bridge", "building": null, "floor": 1, "x": 0.0, "y": 26.0, "description": "ทางเชื่อมที่เพิ่มใหม่", "aliases": ["ทางเชื่อม13"]}'>+ ทางเชื่อม</button>
+
+          <button type="button" data-for="edges" data-snippet='{"from": "b1-f1-stB", "to": "b1-f1-r03", "distance": 4.0, "time": 3, "type": "corridor", "bidirectional": true}'>+ ทางเดิน</button>
+          <button type="button" data-for="edges" data-snippet='{"from": "b1-f1-stC", "to": "b1-f2-stC", "distance": 7.5, "time": 20, "type": "stairs_up", "bidirectional": false}'>+ บันไดขึ้น</button>
+          <button type="button" data-for="edges" data-snippet='{"from": "b1-f2-stC", "to": "b1-f1-stC", "distance": 7.5, "time": 15, "type": "stairs_down", "bidirectional": false}'>+ บันไดลง</button>
+          <button type="button" data-for="edges" data-snippet='{"from": "b1-f1-stA", "to": "br-b1b3-f1", "distance": 13.0, "time": 10, "type": "bridge", "bidirectional": true}'>+ ทางเชื่อม</button>
+        </div>
+
+        <div class="report">
+          <div class="report-status" id="report-status"><span class="dot"></span>กำลังตรวจ…</div>
+          <ul class="issues" id="issues"></ul>
+        </div>
+      </div>
+
+      <!-- ---------------- ภาพ 3 มิติ ---------------- -->
+      <div class="lab-pane">
+        <div class="stage" id="stage">
+          <canvas id="scene" aria-label="ภาพโหนดและเส้นเชื่อมที่ได้จาก JSON ลากเพื่อหมุน"></canvas>
+        </div>
+        <p class="stage-hint">
+          ลากเพื่อหมุน · Shift+ลาก (หรือคลิกขวาลาก) เพื่อเลื่อน · สกรอลล์เพื่อซูม ·
+          <strong>คลิกที่โหนด</strong> เพื่อกระโดดไปยังบรรทัดของมันใน <code>nodes.json</code>
+        </p>
+
+        <div class="view-tools">
+          <button type="button" id="btn-fit">⤢ พอดีจอ</button>
+          <button type="button" id="btn-reset-view">⟲ มุมมองเริ่มต้น</button>
+          <button type="button" id="btn-grid" aria-pressed="true">▦ ระนาบชั้น</button>
+          <button type="button" id="btn-labels" aria-pressed="true">🏷 ป้ายชื่อ</button>
+          <button type="button" id="btn-spin" aria-pressed="false">↻ หมุนเอง</button>
+        </div>
+
+        <div class="view-tools" id="floor-list" aria-label="เลือกชั้นที่จะเน้น"></div>
+
+        <div class="view-tools">
+          <label>
+            ระยะห่างระหว่างชั้นบนภาพ
+            <input type="range" id="floor-gap" min="4" max="30" step="1" value="14">
+          </label>
+        </div>
+
+        <div class="stat-row">
+          <div><b id="stat-nodes">–</b><small>โหนด</small></div>
+          <div><b id="stat-edges">–</b><small>เส้นเชื่อม</small></div>
+          <div><b id="stat-buildings">–</b><small>อาคาร</small></div>
+          <div><b id="stat-degree">–</b><small>ดีกรีเฉลี่ย</small></div>
+        </div>
+
+        <div class="chips" id="legend"></div>
+
+        <div class="trial">
+          <select id="trial-from" aria-label="จุดเริ่มต้นสำหรับทดสอบ"></select>
+          <span aria-hidden="true">→</span>
+          <select id="trial-to" aria-label="จุดหมายสำหรับทดสอบ"></select>
+          <button type="button" id="trial-run">หาเส้นทาง</button>
+          <button type="button" id="trial-clear" style="background:var(--surface);color:var(--text);border-color:var(--border);font-weight:400">ล้าง</button>
+          <p class="trial-out" id="trial-out"></p>
+        </div>
+
+        <div class="picked" id="picked" hidden>
+          <h5 id="picked-name"></h5>
+          <p id="picked-meta"></p>
+          <p id="picked-links"></p>
+          <pre id="picked-json"></pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout tip">
+      <strong class="callout-title">งานที่แก้ไว้ไม่หาย</strong>
+      <p>
+        ข้อความในช่องทั้งสามถูกเก็บไว้ในเบราว์เซอร์เครื่องนี้เอง ปิดแล้วเปิดใหม่ก็ยังอยู่
+        ถ้าอยากกลับไปตั้งต้นให้กด <b>คืนค่าตัวอย่างเริ่มต้น</b>
+        และถ้าอยากดูของจริงว่าเขาเขียนกันอย่างไร ให้กด <b>โหลดข้อมูลจริง 7 อาคาร</b>
+        (ต้องเปิดหน้านี้ผ่านเว็บเซิร์ฟเวอร์ ไม่ใช่เปิดไฟล์ตรง ๆ)
+      </p>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section class="block" id="buildings">
+    <h3>3. <code>buildings.json</code> — ทะเบียนอาคาร</h3>
+
+    <p>ไฟล์นี้มีสองส่วน คือ <code>meta</code> ที่เป็นค่ากลางของทั้งผัง และ <code>buildings</code> ที่เป็นรายชื่ออาคาร</p>
+
+    <div class="tbl-wrap">
+      <table class="tbl">
+        <thead>
+          <tr><th>ฟิลด์ใน <code>meta</code></th><th>ชนิด</th><th>ความหมาย</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>school</code></td><td>ข้อความ</td><td>ชื่อผัง ใช้แสดงเฉย ๆ</td></tr>
+          <tr><td><code>unit</code></td><td>ข้อความ</td><td>หน่วยของพิกัด ปกติคือ <code>"meter"</code></td></tr>
+          <tr><td><code>floorHeight</code></td><td>ตัวเลข</td><td>ความสูงจริงต่อชั้นเป็นเมตร ใช้คำนวณระยะทาง 3 มิติของ A*</td></tr>
+          <tr><td><code>floors</code></td><td>อาร์เรย์ตัวเลข</td><td>ชั้นทั้งหมดที่มีในผัง</td></tr>
+          <tr><td><code>extent</code></td><td>อาร์เรย์ 4 ตัว</td><td>กรอบของผัง <code>[xน้อยสุด, yน้อยสุด, xมากสุด, yมากสุด]</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="tbl-wrap">
+      <table class="tbl">
+        <thead>
+          <tr><th>ฟิลด์ของอาคารแต่ละหลัง</th><th>จำเป็น</th><th>ความหมาย</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>id</code></td><td class="req">ต้องมี</td><td>รหัสอาคาร ห้ามซ้ำ เช่น <code>"b1"</code> — ฟิลด์ <code>building</code> ของโหนดจะอ้างมาที่นี่</td></tr>
+          <tr><td><code>name</code></td><td class="req">ต้องมี</td><td>ชื่อเต็ม เช่น <code>"อาคาร 1"</code></td></tr>
+          <tr><td><code>shortName</code></td><td class="opt">ไม่บังคับ</td><td>ชื่อย่อที่ใช้ในคำบอกทาง เช่น <code>"อ.1"</code></td></tr>
+          <tr><td><code>floors</code></td><td class="opt">ควรมี</td><td>ชั้นที่อาคารนี้มี ใช้ตรวจว่าโหนดอยู่ชั้นที่มีจริงหรือเปล่า</td></tr>
+          <tr><td><code>color</code></td><td class="opt">ควรมี</td><td>สีประจำอาคารแบบ <code>#rrggbb</code></td></tr>
+          <tr><td><code>rect</code></td><td class="opt">ไม่บังคับ</td><td>กรอบพื้นที่อาคาร <code>[x1, y1, x2, y2]</code></td></tr>
+          <tr><td><code>zone</code>, <code>code</code>, <code>axis</code>, <code>description</code>, <code>photo</code></td><td class="opt">ไม่บังคับ</td><td>ข้อมูลประกอบ ไม่มีผลต่อการคำนวณ</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section class="block" id="nodes">
+    <h3>4. <code>nodes.json</code> — จุดทุกจุดในผัง</h3>
+
+    <p>โหนดหนึ่งตัวเขียนได้สั้น ๆ แบบนี้ (เขียนบรรทัดเดียวหรือหลายบรรทัดก็ได้ JSON ไม่สนใจการเว้นบรรทัด)</p>
+
+    <div class="formula">
+      {"id": "b1-f1-r01", "name": "ห้อง 1101", "type": "classroom", "building": "b1", "floor": 1, "x": 4.0, "y": 0.0}
+    </div>
+
+    <div class="tbl-wrap">
+      <table class="tbl">
+        <thead><tr><th>ฟิลด์</th><th>จำเป็น</th><th>ชนิด</th><th>ความหมาย</th></tr></thead>
+        <tbody>
+          <tr><td><code>id</code></td><td class="req">ต้องมี</td><td>ข้อความ</td><td>รหัสเฉพาะของโหนด <strong>ห้ามซ้ำทั้งไฟล์</strong> เพราะ <code>edges.json</code> อ้างถึงด้วยค่านี้</td></tr>
+          <tr><td><code>name</code></td><td class="req">ต้องมี</td><td>ข้อความ</td><td>ชื่อที่คนอ่าน ใช้แสดงบนภาพและในช่องค้นหา</td></tr>
+          <tr><td><code>type</code></td><td class="req">ต้องมี</td><td>ข้อความ</td><td>ชนิดของจุด กำหนดสีและสัญลักษณ์บนภาพ (ดูตารางถัดไป)</td></tr>
+          <tr><td><code>x</code>, <code>y</code></td><td class="req">ต้องมี</td><td>ตัวเลข</td><td>พิกัดบนผังเป็นเมตร มองจากด้านบน</td></tr>
+          <tr><td><code>floor</code></td><td class="opt">ควรมี</td><td>ตัวเลข</td><td>ชั้นที่โหนดอยู่ ใช้คำนวณความสูงบนภาพ ถ้าไม่ใส่จะถูกวางไว้ชั้นล่างสุด</td></tr>
+          <tr><td><code>building</code></td><td class="opt">ควรมี</td><td>ข้อความ / null</td><td><code>id</code> ของอาคารใน <code>buildings.json</code> · ทางเชื่อมที่ไม่ได้อยู่ในอาคารไหนให้ใส่ <code>null</code></td></tr>
+          <tr><td><code>aliases</code></td><td class="opt">ไม่บังคับ</td><td>อาร์เรย์ข้อความ</td><td>คำค้นเพิ่มเติม เช่นรหัสห้อง <code>["1101"]</code></td></tr>
+          <tr><td><code>description</code>, <code>photo</code>, <code>source</code></td><td class="opt">ไม่บังคับ</td><td>ข้อความ</td><td>ข้อมูลประกอบที่แสดงตอนคลิกดูรายละเอียด</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h4>ชนิดของโหนดที่ระบบรู้จัก</h4>
+    <p>
+      ชนิดที่ใช้จริงในผังนี้มีสามอย่าง คือ <code>classroom</code>, <code>stairs</code> และ <code>bridge</code>
+      ส่วนที่เหลือเตรียมไว้ให้ต่อยอด ถ้าใส่ชนิดนอกรายการนี้ระบบยังวาดให้ แต่จะเตือนและใช้สีเทากลาง ๆ
+    </p>
+    <div class="tbl-wrap">
+      <table class="tbl">
+        <thead><tr><th>ชนิด</th><th>ความหมาย</th><th>ชนิด</th><th>ความหมาย</th></tr></thead>
+        <tbody>
+          <tr><td><code>classroom</code></td><td>ห้องเรียน</td><td><code>toilet</code></td><td>ห้องน้ำ</td></tr>
+          <tr><td><code>stairs</code></td><td>บันได</td><td><code>office</code></td><td>ห้องสำนักงาน</td></tr>
+          <tr><td><code>bridge</code></td><td>ทางเชื่อมระหว่างอาคาร</td><td><code>corridor</code></td><td>ทางเดิน</td></tr>
+          <tr><td><code>elevator</code></td><td>ลิฟต์</td><td><code>junction</code></td><td>ทางแยก</td></tr>
+          <tr><td><code>entrance</code></td><td>ทางเข้าอาคาร</td><td><code>gate</code></td><td>ประตูโรงเรียน</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout key">
+      <strong class="callout-title">ตั้ง <code>id</code> ให้เป็นระบบ จะแก้ง่ายกว่ามาก</strong>
+      <p>
+        ผังนี้ใช้แบบแผน <code>b&lt;อาคาร&gt;-f&lt;ชั้น&gt;-r&lt;ห้อง&gt;</code> เช่น <code>b2-f3-r01</code>
+        และ <code>b&lt;อาคาร&gt;-f&lt;ชั้น&gt;-st&lt;บันได&gt;</code> เช่น <code>b2-f3-stA</code>
+        พอ <code>id</code> เดาได้ การเขียน <code>edges.json</code> ก็แทบไม่ต้องเปิดดู <code>nodes.json</code> เลย
+      </p>
+    </div>
+
+    <h4>โหนดคนละชั้นอยู่พิกัดเดียวกันได้</h4>
+    <p>
+      สังเกตในตัวอย่างว่า <code>b1-f1-r01</code> กับ <code>b1-f2-r01</code> มี <code>x</code>, <code>y</code> เท่ากันเป๊ะ
+      ต่างกันแค่ <code>floor</code> ซึ่งถูกต้องแล้ว เพราะห้องชั้นบนก็อยู่ตรงกับห้องชั้นล่างจริง ๆ
+      ระบบแยกมันออกจากกันด้วยแกนสูงที่คำนวณจาก <code>floor</code> เอง
+    </p>
+  </section>
+
+  <!-- ============================================================ -->
+  <section class="block" id="edges">
+    <h3>5. <code>edges.json</code> — เส้นที่ต่อระหว่างจุด</h3>
+
+    <div class="formula">
+      {"from": "b1-f1-stA", "to": "b1-f1-r01", "distance": 4.0, "time": 3, "type": "corridor", "bidirectional": true}
+    </div>
+
+    <div class="tbl-wrap">
+      <table class="tbl">
+        <thead><tr><th>ฟิลด์</th><th>จำเป็น</th><th>ชนิด</th><th>ความหมาย</th></tr></thead>
+        <tbody>
+          <tr><td><code>from</code>, <code>to</code></td><td class="req">ต้องมี</td><td>ข้อความ</td><td><code>id</code> ของโหนดต้นทางและปลายทาง ต้องมีอยู่จริงใน <code>nodes.json</code></td></tr>
+          <tr><td><code>distance</code></td><td class="req">ต้องมี</td><td>ตัวเลข &gt; 0</td><td>ระยะทางเดินจริงเป็นเมตร — เป็นน้ำหนักของโหมด "ระยะทางสั้นสุด"</td></tr>
+          <tr><td><code>time</code></td><td class="opt">ควรมี</td><td>ตัวเลข &gt; 0</td><td>เวลาเดินเป็นวินาที — น้ำหนักของโหมด "เวลาน้อยสุด" ถ้าไม่ใส่ ระบบจะประมาณจาก <code>distance ÷ 1.3</code></td></tr>
+          <tr><td><code>type</code></td><td class="opt">ควรมี</td><td>ข้อความ</td><td>ชนิดของทาง กำหนดสีเส้น และใช้กับตัวเลือก "เลี่ยงบันได"</td></tr>
+          <tr><td><code>bidirectional</code></td><td class="opt">ไม่บังคับ</td><td>true / false</td><td><code>true</code> (ค่าเริ่มต้น) = เดินได้ทั้งไปและกลับ · <code>false</code> = เดินได้ทางเดียวจาก <code>from</code> ไป <code>to</code></td></tr>
+          <tr><td><code>closed</code></td><td class="opt">ไม่บังคับ</td><td>true / false</td><td>ใส่ <code>true</code> เพื่อปิดทางนั้นชั่วคราวโดยไม่ต้องลบบรรทัดทิ้ง</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h4>ชนิดของเส้นเชื่อม</h4>
+    <div class="tbl-wrap">
+      <table class="tbl">
+        <thead><tr><th>ชนิด</th><th>ใช้เมื่อไร</th></tr></thead>
+        <tbody>
+          <tr><td><code>corridor</code></td><td>ทางเดินธรรมดาในชั้นเดียวกัน</td></tr>
+          <tr><td><code>stairs_up</code> / <code>stairs_down</code></td><td>บันไดขึ้นและลง แยกกันคนละบรรทัดเพราะใช้เวลาไม่เท่ากัน</td></tr>
+          <tr><td><code>bridge</code></td><td>ทางเชื่อมระหว่างอาคาร</td></tr>
+          <tr><td><code>elevator</code></td><td>ลิฟต์</td></tr>
+          <tr><td><code>outdoor</code>, <code>ramp</code>, <code>entrance</code>, <code>room</code></td><td>ทางเดินนอกอาคาร ทางลาด ทางเข้า และทางเข้าห้อง</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout key">
+      <strong class="callout-title">ทำไมบันไดต้องเขียนสองบรรทัด</strong>
+      <p>
+        เดินขึ้นบันไดเหนื่อยกว่าเดินลง เวลาจึงไม่เท่ากัน (ตัวอย่างใช้ขึ้น 20 วินาที ลง 15 วินาที)
+        ถ้าเขียนบรรทัดเดียวแบบ <code>bidirectional: true</code> ทั้งสองทิศจะใช้เวลาเท่ากันซึ่งไม่ตรงความจริง
+        จึงต้องเขียนเป็นสองบรรทัดแบบทางเดียว
+      </p>
+      <div class="formula" style="margin-top:10px">
+        {"from": "b1-f1-stA", "to": "b1-f2-stA", "distance": 7.5, "time": 20, "type": "stairs_up", "bidirectional": false}<br>
+        {"from": "b1-f2-stA", "to": "b1-f1-stA", "distance": 7.5, "time": 15, "type": "stairs_down", "bidirectional": false}
+      </div>
+    </div>
+
+    <div class="callout">
+      <strong class="callout-title">ทำไมทางเชื่อมระหว่างอาคารต้องมีโหนดตรงกลาง</strong>
+      <p>
+        แทนที่จะลากเส้นเดียวยาว 26 เมตรจากอาคารหนึ่งไปอีกอาคาร ตัวอย่างสร้างโหนดชนิด
+        <code>bridge</code> ไว้ตรงกลางแล้วต่อสองเส้นข้างละ 13 เมตร
+        ทำให้สะพานเป็นจุดที่ค้นหาเจอ คลิกดูได้ และคำบอกทางพูดถึงมันได้ว่า "เดินข้ามทางเชื่อม"
+      </p>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section class="block" id="drill">
+    <h3>6. แบบฝึกหัด</h3>
+    <p>ลองทำในห้องทดลองด้านบนตามลำดับ แต่ละข้อจะเห็นผลบนภาพทันที</p>
+
+    <div class="card">
+      <h4>① เพิ่มห้องที่สามให้อาคาร 1 ชั้น 1</h4>
+      <p>
+        ไปที่แท็บ <code>nodes.json</code> กดปุ่ม <b>+ ห้องเรียน</b> จะได้ห้อง <code>b1-f1-r03</code> โผล่มาบนภาพ
+        แต่จะมีคำเตือนว่า "ไม่มีเส้นเชื่อมเลย" เพราะยังเดินไปไม่ถึง
+        จากนั้นไปแท็บ <code>edges.json</code> กด <b>+ ทางเดิน</b> เพื่อต่อจากบันได 1ข เข้าห้องใหม่ คำเตือนจะหายไป
+      </p>
+    </div>
+    <div class="card">
+      <h4>② ทำให้อาคาร 3 มีแค่ 2 ชั้น</h4>
+      <p>
+        ลบโหนดทุกตัวที่ <code>id</code> ขึ้นต้นด้วย <code>b3-f3-</code> ออกจาก <code>nodes.json</code>
+        แล้วดูว่าระบบฟ้องอะไรบ้าง — จะพบว่าเส้นเชื่อมที่ยังอ้างถึงโหนดเหล่านั้นกลายเป็นข้อผิดพลาดทันที
+        ต้องตามลบใน <code>edges.json</code> ให้ครบ รวมถึงทางเชื่อมอาคาร 2–3 ที่อยู่ชั้น 3 ด้วย
+      </p>
+    </div>
+    <div class="card">
+      <h4>③ ย้ายทางเชื่อมอาคาร 1–2 ลงไปชั้น 1</h4>
+      <p>
+        แก้ <code>floor</code> ของโหนด <code>br-b1b2-f2</code> เป็น <code>1</code>
+        แล้วแก้ <code>from</code>/<code>to</code> ของเส้นเชื่อมสองเส้นให้ชี้ไปบันไดชั้น 1 แทน
+        สังเกตว่าสะพานบนภาพย้ายลงมาอยู่ระนาบล่างสุด
+      </p>
+    </div>
+    <div class="card">
+      <h4>④ ทำให้บันไดอาคาร 2 เดินขึ้นได้อย่างเดียว</h4>
+      <p>
+        ลบบรรทัด <code>stairs_down</code> ของอาคาร 2 ทั้งหมด
+        แล้วใช้แผงทดลองหาเส้นทางจากห้อง <code>2301</code> ไปห้อง <code>2101</code>
+        จะเห็นว่าระบบต้องอ้อมไปทางอาคารอื่น หรือหาเส้นทางไม่เจอเลย
+      </p>
+    </div>
+    <div class="card">
+      <h4>⑤ ทำให้บันไดช้าจนคนเลือกเดินอ้อม</h4>
+      <p>
+        เปลี่ยน <code>time</code> ของ <code>stairs_up</code> ทุกเส้นจาก <code>20</code> เป็น <code>200</code>
+        แล้วลองหาเส้นทางข้ามชั้นดู เส้นทางจะเปลี่ยนไปใช้ทางเชื่อมระหว่างอาคารแทน
+        นี่คือหลักฐานว่าตัวเลขในไฟล์มีผลต่อคำตอบของอัลกอริทึมจริง ๆ
+      </p>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section class="block" id="mistakes">
+    <h3>7. ข้อผิดพลาดที่พบบ่อย</h3>
+
+    <div class="tbl-wrap">
+      <table class="tbl">
+        <thead><tr><th>อาการ</th><th>สาเหตุ</th><th>วิธีแก้</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>ฟ้อง <code>Unexpected token</code></td>
+            <td>มีคอมมาเกินหลังรายการสุดท้าย หรือลืมคอมมาระหว่างรายการ</td>
+            <td>JSON ห้ามมีคอมมาปิดท้ายอาร์เรย์ กดเลขบรรทัดในรายการข้อผิดพลาดเพื่อกระโดดไปดู</td>
+          </tr>
+          <tr>
+            <td>ฟ้องว่า JSON ผิดรูปแบบทั้งที่ดูปกติ</td>
+            <td>ใช้ <code>'</code> แทน <code>"</code> หรือใส่คอมเมนต์ <code>//</code></td>
+            <td>JSON ใช้ได้แค่อัญประกาศคู่ และไม่รองรับคอมเมนต์เลย</td>
+          </tr>
+          <tr>
+            <td>เส้นหายไปเงียบ ๆ</td>
+            <td><code>from</code> หรือ <code>to</code> พิมพ์ <code>id</code> ผิด</td>
+            <td>ระบบจะฟ้องว่า "อ้างถึงโหนดที่ไม่มีอยู่" คัดลอก <code>id</code> จาก <code>nodes.json</code> มาวางแทนการพิมพ์เอง</td>
+          </tr>
+          <tr>
+            <td>โหนดใหม่ลอยอยู่เฉย ๆ</td>
+            <td>เพิ่มโหนดแล้วลืมเพิ่มเส้นเชื่อม</td>
+            <td>ทุกโหนดต้องมีอย่างน้อยหนึ่งเส้น ไม่งั้นค้นเจอแต่เดินไปไม่ถึง</td>
+          </tr>
+          <tr>
+            <td>เตือนว่า "เดินไปไม่ถึง" หลายโหนด</td>
+            <td>กราฟขาดเป็นสองก้อน เช่นลบทางเชื่อมระหว่างอาคารออก</td>
+            <td>เติมเส้นที่เชื่อมสองก้อนเข้าหากัน แล้วคำเตือนจะหายไป</td>
+          </tr>
+          <tr>
+            <td>ชั้นบนกับชั้นล่างทับกันบนภาพ</td>
+            <td><code>floor</code> เป็นข้อความ <code>"2"</code> ไม่ใช่ตัวเลข <code>2</code></td>
+            <td>ตัวเลขใน JSON ต้องเขียนโดยไม่มีอัญประกาศ</td>
+          </tr>
+          <tr>
+            <td>เส้นทางที่ได้ดูแปลก ๆ</td>
+            <td><code>distance</code> ไม่สมจริง เช่นทางเดิน 4 เมตรใส่เป็น 0.4</td>
+            <td>อัลกอริทึมเชื่อตัวเลขในไฟล์เสมอ ระยะทางผิดคำตอบก็ผิดตาม</td>
+          </tr>
+          <tr>
+            <td>ขึ้นบันไดกับลงบันไดใช้เวลาเท่ากัน</td>
+            <td>เขียนบันไดเป็นเส้นเดียวแบบ <code>bidirectional: true</code></td>
+            <td>แยกเป็นสองบรรทัดแบบทางเดียว ตามหัวข้อ 5</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section class="block" id="ship">
+    <h3>8. เอาไปใช้จริง</h3>
+
+    <p>เมื่อข้อมูลในห้องทดลองผ่านการตรวจครบแล้ว เอาไปใช้กับหน้าแผนที่จริงได้สองทาง</p>
+
+    <div class="grid-2">
+      <div class="card">
+        <h4>ทางที่ 1 — ดาวน์โหลดแล้ววางทับ</h4>
+        <p>
+          กดปุ่มดาวน์โหลดทั้งสามไฟล์ แล้วนำไปวางทับในโฟลเดอร์ <code>data/</code> ของโปรเจกต์
+          จากนั้นตรวจซ้ำด้วยสคริปต์ฝั่งเครื่อง แล้วเปิด <a href="index.html">หน้าแผนที่</a> ได้เลย
+        </p>
+        <pre style="margin:8px 0 0;padding:9px 11px;border-radius:9px;background:var(--surface-2);border:1px solid var(--border);font-family:var(--mono);font-size:12.5px;overflow-x:auto">python tools/validate_data.py</pre>
+      </div>
+      <div class="card">
+        <h4>ทางที่ 2 — แก้ที่ตัวสร้างข้อมูล</h4>
+        <p>
+          ถ้าผังมีแบบแผนซ้ำ ๆ (ทุกอาคารหน้าตาเหมือนกัน) การไล่พิมพ์ JSON ทีละบรรทัดจะช้ามาก
+          ให้ไปแก้ตารางค่าคงที่ในไฟล์ <code>tools/generate_data.py</code> แทน — จำนวนอาคาร ชั้น ห้อง
+          ตำแหน่งบันได และตารางทางเชื่อม อยู่ตรงหัวไฟล์ทั้งหมด แล้วสั่งสร้างใหม่
+        </p>
+        <pre style="margin:8px 0 0;padding:9px 11px;border-radius:9px;background:var(--surface-2);border:1px solid var(--border);font-family:var(--mono);font-size:12.5px;overflow-x:auto">python tools/generate_data.py</pre>
+      </div>
+    </div>
+
+    <div class="callout warn">
+      <strong class="callout-title">ระวังจุดเดียว</strong>
+      <p>
+        <code>tools/generate_data.py</code> จะ<strong>เขียนทับไฟล์ใน <code>data/</code> ทั้งหมด</strong>
+        ถ้าแก้ JSON ด้วยมือไว้แล้วมารันสคริปต์ งานที่แก้จะหายไป
+        เลือกอย่างใดอย่างหนึ่งให้ชัดว่าจะแก้ด้วยมือหรือแก้ที่สคริปต์
+      </p>
+    </div>
+  </section>
+
+  <nav class="next-nav">
+    <a href="index.html">
+      <small>ไปต่อ</small>
+      <strong>แผนที่กราฟ 3 มิติ →</strong>
+      <small>ลองค้นหาเส้นทางบนกราฟจริงของอาคารเรียน 7 หลัง พร้อมสลับอัลกอริทึมได้</small>
+    </a>
+    <a href="dijkstra.html">
+      <small>อ่านต่อ</small>
+      <strong>Dijkstra's Algorithm →</strong>
+      <small>ตัวเลข <code>distance</code> กับ <code>time</code> ที่เพิ่งเขียนไป ถูกนำไปใช้อย่างไร</small>
+    </a>
+  </nav>
+
+  <p class="doc-foot">
+    ห้องทดลองในหน้านี้เรียกใช้โมดูลตัวเดียวกับหน้าแผนที่จริง คือ
+    <code>js/graph.js</code> และ <code>js/view3d.js</code> ส่วนตัวหน้าอยู่ที่ <code>js/data-editor.js</code>
+    ข้อมูลที่ผ่านหน้านี้จึงใช้กับ <code>index.html</code> ได้ทันที
+  </p>
+
+</main>
+
+<div class="toast-mini" id="toast" role="status" aria-live="polite"></div>
+
+<script src="js/graph.js"></script>
+<script src="js/view3d.js"></script>
+<script src="js/data-editor.js"></script>
+</body>
+</html>

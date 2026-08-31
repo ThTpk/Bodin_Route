@@ -183,6 +183,35 @@ class Graph3DView {
     };
   }
 
+  /**
+   * เปลี่ยนกราฟที่กำลังแสดงโดยใช้อ็อบเจกต์ตัวเดิม
+   * ใช้ในหน้าแก้ไขข้อมูล ที่ต้องวาดใหม่ทุกครั้งที่ JSON เปลี่ยน
+   * (สร้าง Graph3DView ตัวใหม่ทุกครั้งไม่ได้ เพราะลูปวาดภาพของตัวเก่าจะยังทำงานค้างอยู่)
+   */
+  setGraph(graph, buildingsById) {
+    this.graph = graph;
+    this.buildingsById = buildingsById || new Map();
+    this.nodes = [...graph.nodes.values()];
+    this.edges = graph.edges;
+    this.floors = [...new Set(this.nodes.map((n) => n.floor || 0))].sort((a, b) => a - b);
+    this.minFloor = this.floors.length ? this.floors[0] : 0;
+
+    // สถานะที่ผูกกับกราฟเดิมใช้ต่อไม่ได้ ต้องล้างทิ้ง
+    this.route = null;
+    this.routeEdges = new Set();
+    this.routeNodes = new Set();
+    this.startId = null;
+    this.goalId = null;
+    this.selectedId = null;
+    this.hoverId = null;
+    this.floor = null;
+    this._projected.clear();
+    this._anim = null;
+
+    this.centerOnData();
+    this.invalidate();
+  }
+
   /* =============================================================
    * การฉายภาพ
    * ============================================================= */
