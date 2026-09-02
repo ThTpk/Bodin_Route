@@ -65,6 +65,14 @@ const SELECT_COLOR = '#facc15';
 const TAU = Math.PI * 2;
 const clamp = (v, lo, hi) => (v < lo ? lo : (v > hi ? hi : v));
 
+/** ย่อมุมให้อยู่ในช่วง (-π, π] ใช้หาทางหมุนที่สั้นที่สุด */
+function wrapAngle(a) {
+  let x = a % TAU;
+  if (x > Math.PI) x -= TAU;
+  if (x <= -Math.PI) x += TAU;
+  return x;
+}
+
 /** แปลงสี #rrggbb + ค่าความทึบ เป็น rgba() */
 function rgba(hex, alpha) {
   const h = hex.replace('#', '');
@@ -116,6 +124,10 @@ class Graph3DView {
     this.route = null;
     this.routeEdges = new Set();
     this.routeNodes = new Set();
+    this.routePts = [];       // จุดของเส้นทางในพิกัดโลก เรียงจากต้นทางไปปลายทาง
+    this.routeCum = [];       // ระยะสะสมจากต้นทางถึงจุดที่ i
+    this.routeTotal = 0;      // ความยาวรวมของเส้นทางบนภาพ
+    this._routeT0 = 0;        // เวลาเริ่มต้นของจุดที่วิ่งบนเส้นทาง
     this.startId = null;
     this.goalId = null;
     this.selectedId = null;
@@ -200,6 +212,10 @@ class Graph3DView {
     this.route = null;
     this.routeEdges = new Set();
     this.routeNodes = new Set();
+    this.routePts = [];       // จุดของเส้นทางในพิกัดโลก เรียงจากต้นทางไปปลายทาง
+    this.routeCum = [];       // ระยะสะสมจากต้นทางถึงจุดที่ i
+    this.routeTotal = 0;      // ความยาวรวมของเส้นทางบนภาพ
+    this._routeT0 = 0;        // เวลาเริ่มต้นของจุดที่วิ่งบนเส้นทาง
     this.startId = null;
     this.goalId = null;
     this.selectedId = null;
@@ -278,19 +294,39 @@ class Graph3DView {
    * ============================================================= */
   fit(margin = 0.86) {
     this.centerOnData();
+    this.dist = this.distanceToFit(
+      this.nodes.map((n) => this.worldOf(n)), this.target, this.yaw, this.pitch, margin,
+    );
+    this.invalidate();
+  }
+
+  /**
+   * ระยะกล้องที่ทำให้จุดทุกจุดในลิสต์อยู่ในจอพอดี
+   * แก้สมการ |x| * focal / (dist + depth) = halfW  แล้วหาค่า dist ที่มากที่สุดที่ต้องใช้
+   * รับ yaw/pitch เข้ามาเป็นพารามิเตอร์ จึงคำนวณล่วงหน้าสำหรับมุมที่ยังไม่ได้หมุนไปได้
+   */
+  distanceToFit(points, target, yaw, pitch, margin = 0.86) {
     const halfW = (this.width / 2) * margin;
     const halfH = (this.height / 2) * margin;
     const focal = this.focal;
+    const cy = Math.cos(yaw);
+    const sy = Math.sin(yaw);
+    const cp = Math.cos(pitch);
+    const sp = Math.sin(pitch);
     let need = 60;
-    this.nodes.forEach((n) => {
-      const c = this.toCamera(this.worldOf(n));
-      // แก้สมการ |x| * focal / (dist + depth) = halfW  หา dist ที่พอดีขอบจอ
+    points.forEach((p) => {
+      const dx = p.x - target.x;
+      const dy = p.y - target.y;
+      const dz = p.z - target.z;
+      const x1 = dx * cy - dy * sy;
+      const y1 = dx * sy + dy * cy;
+      const depth = y1 * cp - dz * sp;
+      const up = y1 * sp + dz * cp;
       need = Math.max(need,
-        (Math.abs(c.x) * focal) / halfW - c.depth,
-        (Math.abs(c.up) * focal) / halfH - c.depth);
+        (Math.abs(x1) * focal) / halfW - depth,
+        (Math.abs(up) * focal) / halfH - depth);
     });
-    this.dist = clamp(need, 40, 4000);
-    this.invalidate();
+    return clamp(need, 40, 4000);
   }
 
   zoomIn() { this.dist = clamp(this.dist * 0.78, 40, 4000); this.invalidate(); }
@@ -330,6 +366,7 @@ class Graph3DView {
 
   setFloorGap(gap) {
     this.floorGap = clamp(Number(gap) || 0, 2, 40);
+    this.rebuildRouteGeometry();
     this.invalidate();
   }
 
@@ -387,6 +424,110 @@ class Graph3DView {
       this.route.path.forEach((id) => this.routeNodes.add(id));
       (this.route.links || []).forEach((l) => this.routeEdges.add(l.edge.index));
     }
+    this.rebuildRouteGeometry();
+    this._routeT0 = this._time;
+    this.invalidate();
+  }
+
+  /**
+   * แปลงลำดับโหนดของเส้นทางเป็นเส้นหักในพิกัดโลก พร้อมระยะสะสมของแต่ละจุด
+   * ระยะสะสมนี้ใช้หาตำแหน่งของ "จุดที่วิ่ง" ให้เคลื่อนที่ด้วยความเร็วคงที่
+   * ต้องเรียกใหม่ทุกครั้งที่ระยะห่างระหว่างชั้นเปลี่ยน เพราะแกน z ของทุกจุดขยับตาม
+   */
+  rebuildRouteGeometry() {
+    this.routePts = [];
+    this.routeCum = [];
+    this.routeTotal = 0;
+    if (!this.route) return;
+
+    this.route.path.forEach((id) => {
+      const node = this.graph.node(id);
+      if (node) this.routePts.push(this.worldOf(node));
+    });
+    if (this.routePts.length < 2) { this.routePts = []; return; }
+
+    let sum = 0;
+    this.routeCum.push(0);
+    for (let i = 1; i < this.routePts.length; i += 1) {
+      const a = this.routePts[i - 1];
+      const b = this.routePts[i];
+      sum += Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z);
+      this.routeCum.push(sum);
+    }
+    this.routeTotal = sum;
+  }
+
+  /** จุดบนเส้นทางที่ระยะ u (0 = ต้นทาง, 1 = ปลายทาง) */
+  routePointAt(u) {
+    const target = clamp(u, 0, 1) * this.routeTotal;
+    const cum = this.routeCum;
+    let i = 1;
+    while (i < cum.length - 1 && cum[i] < target) i += 1;
+    const span = cum[i] - cum[i - 1] || 1;
+    const k = clamp((target - cum[i - 1]) / span, 0, 1);
+    const a = this.routePts[i - 1];
+    const b = this.routePts[i];
+    return {
+      x: a.x + (b.x - a.x) * k,
+      y: a.y + (b.y - a.y) * k,
+      z: a.z + (b.z - a.z) * k,
+    };
+  }
+
+  /**
+   * จัดกล้องให้เห็นเส้นทางทั้งเส้นในคราวเดียว
+   *   1) เลื่อนจุดหมุนไปกึ่งกลางกรอบของเส้นทาง
+   *   2) หมุน yaw ให้แนวต้นทาง→ปลายทางวางขวางจอ เส้นจึงกางออกเต็มความกว้าง
+   *      ไม่ทับกันเองเหมือนตอนที่มองมาตามแนวเส้น
+   *   3) เส้นทางที่อยู่ชั้นเดียวจะกดมุมมองลงเกือบมองจากด้านบน (อ่านทางเลี้ยวง่าย)
+   *      ส่วนเส้นทางที่ข้ามชั้นจะเอียงไว้ เพื่อให้เห็นการขึ้น-ลงชั้นด้วย
+   *   4) ถอยกล้องออกให้ทุกจุดของเส้นทางอยู่ในจอพอดี
+   */
+  frameRoute() {
+    if (this.routePts.length < 2) return;
+
+    const b = {
+      minX: Infinity, maxX: -Infinity,
+      minY: Infinity, maxY: -Infinity,
+      minZ: Infinity, maxZ: -Infinity,
+    };
+    this.routePts.forEach((p) => {
+      b.minX = Math.min(b.minX, p.x); b.maxX = Math.max(b.maxX, p.x);
+      b.minY = Math.min(b.minY, p.y); b.maxY = Math.max(b.maxY, p.y);
+      b.minZ = Math.min(b.minZ, p.z); b.maxZ = Math.max(b.maxZ, p.z);
+    });
+    const center = {
+      x: (b.minX + b.maxX) / 2,
+      y: (b.minY + b.maxY) / 2,
+      z: (b.minZ + b.maxZ) / 2,
+    };
+
+    const first = this.routePts[0];
+    const last = this.routePts[this.routePts.length - 1];
+    let dx = last.x - first.x;
+    let dy = last.y - first.y;
+    if (Math.hypot(dx, dy) < 0.001) { dx = 1; dy = 0; }
+    // เลือก yaw ที่ทำให้ y1 = dx*sin(yaw) + dy*cos(yaw) เป็นศูนย์ แนวเส้นจึงนอนขวางจอ
+    // และได้ x1 = +ระยะ เสมอ แปลว่าต้นทางอยู่ซ้าย ปลายทางอยู่ขวา อ่านตามสายตาได้ทันที
+    const yaw = Math.atan2(-dy, dx);
+
+    const crossesFloors = (b.maxZ - b.minZ) > 0.5;
+    const pitch = crossesFloors ? 0.74 : 1.24;
+    const dist = Math.max(80,
+      this.distanceToFit(this.routePts, center, yaw, pitch, 0.7));
+
+    this._anim = {
+      from: Object.assign({}, this.target),
+      to: center,
+      distFrom: this.dist,
+      distTo: dist,
+      yawFrom: this.yaw,
+      yawTo: this.yaw + wrapAngle(yaw - this.yaw),
+      pitchFrom: this.pitch,
+      pitchTo: clamp(pitch, 0.06, 1.52),
+      t0: performance.now(),
+      ms: 620,
+    };
     this.invalidate();
   }
 
@@ -416,6 +557,8 @@ class Graph3DView {
         z: a.from.z + (a.to.z - a.from.z) * e,
       };
       this.dist = a.distFrom + (a.distTo - a.distFrom) * e;
+      if (a.yawTo !== undefined) this.yaw = a.yawFrom + (a.yawTo - a.yawFrom) * e;
+      if (a.pitchTo !== undefined) this.pitch = a.pitchFrom + (a.pitchTo - a.pitchFrom) * e;
       if (k >= 1) this._anim = null;
       this._dirty = true;
     }
@@ -467,6 +610,7 @@ class Graph3DView {
     if (this.showGrid) this.drawFloorPlanes();
     this.drawEdges();
     this.drawNodes();
+    this.drawRouteFlow();
     this.drawGizmo();
   }
 
@@ -698,6 +842,85 @@ class Graph3DView {
     ctx.restore();
   }
 
+  /* =============================================================
+   * ทิศทางการเดินบนเส้นทางที่ค้นหาได้
+   *   - ลูกศรกลางแต่ละช่วง บอกทิศแม้ภาพจะหยุดนิ่ง
+   *   - จุดเรืองแสงพร้อมหางวิ่งจากต้นทางไปปลายทางซ้ำเป็นรอบ
+   * ============================================================= */
+  drawRouteFlow() {
+    if (!this.route || this.routePts.length < 2) return;
+    const ctx = this.ctx;
+    const screen = this.routePts.map((p) => this.project(p));
+
+    /* ---- ลูกศรกลางช่วง ---- */
+    ctx.save();
+    ctx.lineJoin = 'round';
+    for (let i = 0; i < screen.length - 1; i += 1) {
+      const a = screen[i];
+      const c = screen[i + 1];
+      if (!a || !c) continue;
+      const dx = c.sx - a.sx;
+      const dy = c.sy - a.sy;
+      const len = Math.hypot(dx, dy);
+      if (len < 24) continue;              // ช่วงสั้นเกินไป ใส่ลูกศรแล้วรก
+      const ux = dx / len;
+      const uy = dy / len;
+      const mx = (a.sx + c.sx) / 2;
+      const my = (a.sy + c.sy) / 2;
+      const s = clamp(len * 0.16, 6, 11);
+      ctx.beginPath();
+      ctx.moveTo(mx + ux * s, my + uy * s);
+      ctx.lineTo(mx - ux * s * 0.6 - uy * s * 0.66, my - uy * s * 0.6 + ux * s * 0.66);
+      ctx.lineTo(mx - ux * s * 0.6 + uy * s * 0.66, my - uy * s * 0.6 - ux * s * 0.66);
+      ctx.closePath();
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = ROUTE_COLOR;
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    /* ---- จุดที่วิ่งจากต้นทางไปปลายทาง ----
+     * ความเร็วคงที่ราว 26 หน่วยพิกัดต่อวินาที เส้นทางยาวจึงใช้เวลานานกว่า
+     * แต่จำกัดไว้ที่ 3–14 วินาทีต่อรอบ ไม่ให้ช้าหรือเร็วจนดูไม่ทัน
+     */
+    const cycle = clamp((this.routeTotal / 26) * 1000, 3000, 14000);
+    const head = (((this._time - this._routeT0) % cycle) + cycle) % cycle / cycle;
+    const TRAIL = [
+      { back: 0.075, size: 0.42, alpha: 0.28 },
+      { back: 0.040, size: 0.62, alpha: 0.5 },
+      { back: 0.000, size: 1.00, alpha: 1 },
+    ];
+
+    ctx.save();
+    TRAIL.forEach((t) => {
+      const u = head - t.back;
+      if (u < 0) return;                   // หางยังไม่ออกจากต้นทาง
+      const p = this.project(this.routePointAt(u));
+      if (!p) return;
+      const r = clamp(p.scale * 0.62, 2.4, 11) * 1.15 * t.size;
+
+      if (t.size === 1) {
+        ctx.globalAlpha = 0.3;
+        ctx.beginPath();
+        ctx.arc(p.sx, p.sy, r * 2.6, 0, TAU);
+        ctx.fillStyle = rgba(ROUTE_COLOR, 0.5);
+        ctx.fill();
+      }
+
+      ctx.globalAlpha = t.alpha;
+      ctx.beginPath();
+      ctx.arc(p.sx, p.sy, r, 0, TAU);
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
+      ctx.lineWidth = 2.4 * t.size;
+      ctx.strokeStyle = ROUTE_COLOR;
+      ctx.stroke();
+    });
+    ctx.restore();
+  }
+
   /* ---- ลูกศรบอกทิศของแกน X / Y / Z ที่มุมจอ ---- */
   drawGizmo() {
     const ctx = this.ctx;
@@ -879,6 +1102,7 @@ class Graph3DView {
       else if (key === '-' || key === '_') this.zoomOut();
       else if (key === 'f' || key === 'F') this.fit();
       else if (key === 'c' || key === 'C') this.recenter();
+      else if (key === 'r' || key === 'R') this.frameRoute();
       else return;
       evt.preventDefault();
       this.invalidate();

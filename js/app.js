@@ -21,6 +21,7 @@ const state = {
   start: null,
   goal: null,
   route: null,
+  framedRoute: null,      // คู่ 'ต้นทาง→ปลายทาง' ที่จัดมุมมองให้แล้ว
   options: {
     metric: 'distance',
     algorithm: 'astar',
@@ -254,6 +255,7 @@ function renderRoute() {
 
   if (!route) {
     panel.hidden = true;
+    state.framedRoute = null;
     state.view.renderRoute(null);
     return;
   }
@@ -366,10 +368,37 @@ function renderRoute() {
   updateFloorButtons();
   state.view.setEndpoints(startNode.id, goalNode.id);
   state.view.renderRoute(route);
-  // จงใจไม่เลื่อนกล้องไปที่จุดเริ่มต้นอัตโนมัติ เพราะการย้ายเป้ากล้อง (target)
-  // เท่ากับย้ายจุดหมุนของภาพไปไว้ที่จุดนั้น ภาพจึงหมุนรอบจุดเริ่มต้นแทนที่จะ
-  // หมุนรอบกึ่งกลางกราฟเหมือนก่อนค้นหา และยังถูกดึงกลับทุกครั้งที่เปลี่ยนตัวเลือก
-  // ถ้าอยากเลื่อนไปดูจุดใด ให้คลิกขั้นตอนในรายการคำแนะนำ หรือกดปุ่มพอดีหน้าจอ
+
+  // จัดมุมมองให้เห็นเส้นทางทั้งเส้น — ทำเฉพาะตอนที่คู่ต้นทาง–ปลายทางเปลี่ยนไป
+  // ถ้าจัดใหม่ทุกครั้งที่คำนวณ กล้องจะถูกดึงกลับทุกครั้งที่ติ๊กตัวเลือก
+  // จนหมุนดูมุมที่ต้องการเองไม่ได้ (เป็นปัญหาเดิมของการดึงกล้องไปจุดเริ่มต้น)
+  // ถ้าหมุนไปแล้วอยากกลับมาเห็นทั้งเส้น กดปุ่ม "เห็นทั้งเส้นทาง" หรือปุ่ม R
+  const pair = `${startNode.id}->${goalNode.id}`;
+  if (pair !== state.framedRoute) {
+    state.framedRoute = pair;
+    state.view.frameRoute();
+  }
+}
+
+/* =============================================================
+ * ล้างจุดเริ่มต้น จุดหมาย และเส้นทางทั้งหมด
+ * ============================================================= */
+function resetRoute() {
+  state.start = null;
+  state.goal = null;
+  state.route = null;
+  state.framedRoute = null;
+  pickers.start.set(null);
+  pickers.goal.set(null);
+  $('#detail-panel').hidden = true;
+  state.view.setEndpoints(null, null);
+  state.view.select(null);
+  state.view.setFloor(null);
+  updateFloorButtons();
+  renderRoute();                 // ซ่อนแผงผลลัพธ์ และลบเส้นทางออกจากภาพ
+  state.view.resetView();        // คืนมุมกล้องเริ่มต้น (ลบมุมที่ frameRoute หมุนไว้ให้)
+  history.replaceState(null, '', location.pathname + location.search);
+  showToast('ล้างจุดเริ่มต้นและจุดหมายแล้ว');
 }
 
 function calculateRoute() {
@@ -697,9 +726,15 @@ async function main() {
     });
   });
 
+  $('#reset-btn').addEventListener('click', resetRoute);
+
   $('#zoom-in').addEventListener('click', () => state.view.zoomIn());
   $('#zoom-out').addEventListener('click', () => state.view.zoomOut());
   $('#zoom-fit').addEventListener('click', () => state.view.fit());
+  $('#zoom-route').addEventListener('click', () => {
+    if (state.route && state.route.found) state.view.frameRoute();
+    else showToast('ยังไม่มีเส้นทาง — เลือกจุดเริ่มต้นและจุดหมายก่อน');
+  });
 
   /* ---- แผงเลื่อนจุดศูนย์กลาง / หมุนมุมมอง ---- */
   const ROTATE_STEP = { ccw: [-0.22, 0], cw: [0.22, 0], up: [0, 0.16], down: [0, -0.16] };

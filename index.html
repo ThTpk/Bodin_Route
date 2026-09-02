@@ -89,7 +89,11 @@
           </label>
         </fieldset>
 
-        <button type="submit" class="btn btn-primary btn-block">ค้นหาเส้นทาง</button>
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary btn-block">ค้นหาเส้นทาง</button>
+          <button type="button" class="btn btn-ghost btn-reset" id="reset-btn"
+            title="ล้างจุดเริ่มต้น จุดหมาย และเส้นทางที่แสดงอยู่">↺ ล้างค่า</button>
+        </div>
       </form>
     </section>
 
@@ -149,6 +153,7 @@
         <button type="button" id="zoom-in" aria-label="ขยาย (+)" title="ขยาย (+)">＋</button>
         <button type="button" id="zoom-out" aria-label="ย่อ (-)" title="ย่อ (-)">－</button>
         <button type="button" id="zoom-fit" aria-label="พอดีหน้าจอ (F)" title="พอดีหน้าจอ (F)">⤢</button>
+        <button type="button" id="zoom-route" aria-label="เห็นทั้งเส้นทาง (R)" title="หันมุมมองให้เห็นเส้นทางทั้งเส้น (R)">🧭</button>
       </div>
       <div class="hud-card hud-view">
         <button type="button" id="btn-spin" class="hud-toggle" aria-pressed="false">↻ หมุนอัตโนมัติ</button>
@@ -162,7 +167,7 @@
       </div>
     </div>
 
-    <div class="view-hint">ลากเพื่อหมุน · Shift+ลาก หรือคลิกขวาลาก เพื่อเลื่อน · สกรอลล์หรือหุบสองนิ้วเพื่อซูม · ปุ่มลูกศร = เลื่อน, Shift+ลูกศร = หมุน · คลิกโหนดเพื่อดูรายละเอียด</div>
+    <div class="view-hint">ลากเพื่อหมุน · Shift+ลาก หรือคลิกขวาลาก เพื่อเลื่อน · สกรอลล์หรือหุบสองนิ้วเพื่อซูม · ปุ่มลูกศร = เลื่อน, Shift+ลูกศร = หมุน · R = เห็นทั้งเส้นทาง · คลิกโหนดเพื่อดูรายละเอียด</div>
 
     <details class="legend" open>
       <summary>สัญลักษณ์ (คลิกเพื่อซ่อน/แสดงในภาพ)</summary>
