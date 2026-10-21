@@ -575,6 +575,7 @@ function buildLegend() {
     bridge: 'ทางเชื่อมระหว่างอาคาร',
     elevator: 'ลิฟต์',
     ramp: 'ทางลาด',
+    room: 'จากทางเดินเข้าห้อง',
     outdoor: 'ทางเดินกลางแจ้ง',
     entrance: 'ทางเข้าอาคาร',
   };
@@ -762,6 +763,7 @@ async function main() {
     });
   };
   toggle('#btn-spin', (on) => state.view.setAutoRotate(on));
+  toggle('#btn-model', (on) => state.view.setShowBuildings(on));
   toggle('#btn-grid', (on) => state.view.setShowGrid(on));
   toggle('#btn-labels', (on) => state.view.setShowLabels(on));
 

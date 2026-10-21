@@ -704,7 +704,7 @@ function draw(result) {
       target: Object.assign({}, state.view.target),
     };
     const keepFloor = state.view.floor;
-    state.view.setGraph(graph, buildingsById);
+    state.view.setGraph(graph, buildingsById, buildings);
     state.view.yaw = cam.yaw;
     state.view.pitch = cam.pitch;
     state.view.dist = cam.dist;

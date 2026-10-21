@@ -45,6 +45,7 @@ const EDGE_STYLE = {
   bridge:       { color: '#22c55e', width: 2.6 },
   elevator:     { color: '#a855f7', width: 2.4 },
   outdoor:      { color: '#38bdf8', width: 1.8 },
+  room:         { color: '#3b82f6', width: 1.2 },
   entrance:     { color: '#10b981', width: 1.8 },
 };
 
@@ -69,6 +70,9 @@ const THEMES = {
 const ROUTE_COLOR = '#f97316';
 const SELECT_COLOR = '#facc15';
 
+/* ความทึบของโมเดลอาคาร (0.20 = โปร่งแสง 80% มองทะลุเห็นเส้นทางข้างใน) */
+const BUILDING_ALPHA = 0.20;
+
 const TAU = Math.PI * 2;
 const clamp = (v, lo, hi) => (v < lo ? lo : (v > hi ? hi : v));
 
@@ -87,9 +91,32 @@ function rgba(hex, alpha) {
   return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`;
 }
 
+/** พื้นที่มีเครื่องหมายของรูปหลายเหลี่ยมบนจอ ใช้ดูว่าหน้าไหนหันเข้าหรือหันออกจากกล้อง */
+function screenArea(pts) {
+  let sum = 0;
+  for (let i = 0; i < pts.length; i += 1) {
+    const a = pts[i];
+    const b = pts[(i + 1) % pts.length];
+    sum += a.sx * b.sy - b.sx * a.sy;
+  }
+  return sum / 2;
+}
+
 /** ชื่อสั้นสำหรับป้ายกำกับบนภาพ */
 function shortLabel(node) {
-  if (node.type === 'stairs') return node.name.replace(/^บันได\s*/, 'บันได ').replace(/\s*ชั้น\s*\d+$/, '');
+  if (node.type === 'stairs') {
+    return node.name
+      .replace(/^บันได/, 'บันได ')
+      .replace(/\s*ชั้น\s*\d+$/, '')
+      .replace(/\s*ฝั่ง/, ' ');
+  }
+  if (node.type === 'junction') {
+    // "ทางแยกตึก 1 × อาคารเชื่อม ชั้น 2" -> "ตึก 1 × อาคารเชื่อม"
+    return node.name.replace(/^ทางแยก/, '').replace(/\s*ชั้น\s*\d+$/, '');
+  }
+  if (node.type === 'corridor') return node.name.replace(/^ทางเดินหน้าห้อง\s*/, 'หน้าห้อง ');
+  if (node.type === 'entrance') return node.name.replace(/^ทางเข้า/, 'เข้า ');
+  if (node.type === 'plaza') return node.name.replace(/^ลานหน้า/, 'ลาน ');
   if (node.type === 'bridge') return node.name.replace(/\s*\(.*\)$/, '');
   return node.name.replace(/^ห้อง\s*/, '');
 }
@@ -103,6 +130,7 @@ class Graph3DView {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this.graph = deps.graph;
+    this.buildings = deps.buildings || [];
     this.buildingsById = deps.buildingsById || new Map();
 
     this.nodes = [...this.graph.nodes.values()];
@@ -111,8 +139,12 @@ class Graph3DView {
     this.floors = [...new Set(this.nodes.map((n) => n.floor || 0))].sort((a, b) => a - b);
     this.minFloor = this.floors[0] || 0;
 
-    /* ระยะระหว่างชั้นบนภาพ (หน่วยเดียวกับพิกัดในไฟล์) */
-    this.floorGap = 14;
+    /* ความสูงต่อชั้นจริง (เมตร) จาก meta.floorHeight ของ data/buildings.json */
+    this.floorHeight = Number(deps.floorHeight) > 0 ? Number(deps.floorHeight) : 3.6;
+
+    /* ระยะระหว่างชั้นบนภาพ เริ่มต้นเท่ากับความสูงชั้นจริง = สัดส่วนถูกต้อง 1:1
+     * เลื่อนแถบ "ระยะห่างระหว่างชั้น" เพื่อดึงชั้นให้ห่างกันขึ้นเวลาดูเส้นทางได้ */
+    this.floorGap = this.floorHeight;
 
     /* กล้อง */
     this.yaw = -0.62;
@@ -125,6 +157,7 @@ class Graph3DView {
     this.typeFilter = null;       // null = แสดงทุกประเภท
     this.showEdges = true;        // false = แสดงเฉพาะเส้นทางที่ค้นหา
     this.showGrid = true;
+    this.showBuildings = true;    // กล่องอาคารโปร่งแสง เส้นทางวิ่งอยู่ข้างใน
     this.showLabels = true;
     this.autoRotate = false;
 
@@ -143,6 +176,7 @@ class Graph3DView {
     this.onNodeClick = null;
 
     this._projected = new Map();
+    this._shapes = null;          // รูปทรงอาคารที่แปลงไว้แล้ว (แคชไว้ใช้ซ้ำ)
     this._anim = null;
     this._dirty = true;
     this._time = 0;
@@ -207,9 +241,12 @@ class Graph3DView {
    * ใช้ในหน้าแก้ไขข้อมูล ที่ต้องวาดใหม่ทุกครั้งที่ JSON เปลี่ยน
    * (สร้าง Graph3DView ตัวใหม่ทุกครั้งไม่ได้ เพราะลูปวาดภาพของตัวเก่าจะยังทำงานค้างอยู่)
    */
-  setGraph(graph, buildingsById) {
+  setGraph(graph, buildingsById, buildings) {
     this.graph = graph;
     this.buildingsById = buildingsById || new Map();
+    if (buildings) this.buildings = buildings;
+    else if (buildingsById) this.buildings = [...this.buildingsById.values()];
+    this._shapes = null;
     this.nodes = [...graph.nodes.values()];
     this.edges = graph.edges;
     this.floors = [...new Set(this.nodes.map((n) => n.floor || 0))].sort((a, b) => a - b);
@@ -372,7 +409,7 @@ class Graph3DView {
   }
 
   setFloorGap(gap) {
-    this.floorGap = clamp(Number(gap) || 0, 2, 40);
+    this.floorGap = clamp(Number(gap) || 0, this.floorHeight, 40);
     this.rebuildRouteGeometry();
     this.invalidate();
   }
@@ -383,6 +420,8 @@ class Graph3DView {
   }
 
   setShowGrid(on) { this.showGrid = !!on; this.invalidate(); }
+
+  setShowBuildings(on) { this.showBuildings = !!on; this.invalidate(); }
 
   setShowLabels(on) { this.showLabels = !!on; this.invalidate(); }
 
@@ -615,11 +654,233 @@ class Graph3DView {
     });
 
     if (this.showGrid) this.drawFloorPlanes();
+    // ผนังด้านไกลวาดก่อน แล้วค่อยวาดเส้นทาง จากนั้นปิดทับด้วยผนังด้านใกล้
+    // เส้นทางจึงดู "อยู่ภายใน" กล่องอาคารโปร่งแสง
+    this.drawBuildings('back');
     this.drawEdges();
-    this.drawNodes();
     this.drawRouteFlow();
+    this.drawBuildings('front');
+    this.drawNodes();
+    this.drawBuildingLabels();
     this.drawGizmo();
   }
+
+  /* =============================================================
+   * โมเดลอาคารโปร่งแสง
+   * ============================================================= */
+
+  /**
+   * รูปทรงของอาคารแต่ละปีก แปลงจาก data/buildings.json ครั้งเดียวแล้วเก็บไว้
+   * อาคารหนึ่งหลังมีได้หลายปีก (เช่น อาคารเชื่อมมีสามปีกต่อกัน)
+   */
+  buildingShapes() {
+    if (this._shapes) return this._shapes;
+    const shapes = [];
+
+    this.buildings.forEach((b) => {
+      let polys = Array.isArray(b.parts)
+        ? b.parts.filter((r) => Array.isArray(r) && r.length >= 3)
+        : [];
+      if (!polys.length && Array.isArray(b.rect) && b.rect.length === 4) {
+        const [x0, y0, x1, y1] = b.rect;
+        polys = [[[x0, y0], [x1, y0], [x1, y1], [x0, y1]]];
+      }
+      if (!polys.length) return;
+
+      const floors = (b.floors && b.floors.length) ? b.floors.slice() : [1];
+      const height = Number(b.height) > 0 ? Number(b.height) : floors.length * this.floorHeight;
+
+      polys.forEach((poly) => {
+        const ring = poly.map((pt) => ({ x: pt[0], y: pt[1] }));
+        // บังคับลำดับจุดให้ทวนเข็มในพิกัดโลก ทุกหน้าจะได้มีทิศทางเดียวกัน
+        let twice = 0;
+        for (let k = 0; k < ring.length; k += 1) {
+          const a = ring[k];
+          const c = ring[(k + 1) % ring.length];
+          twice += a.x * c.y - c.x * a.y;
+        }
+        if (twice < 0) ring.reverse();
+        shapes.push({
+          b, ring, floors, height,
+          area: Math.abs(twice) / 2,
+          cx: ring.reduce((t, q) => t + q.x, 0) / ring.length,
+          cy: ring.reduce((t, q) => t + q.y, 0) / ring.length,
+        });
+      });
+    });
+
+    this._shapes = shapes;
+    return shapes;
+  }
+
+  /** ความสูงเป็นเมตร -> หน่วยแกนตั้งบนภาพ (เท่ากันพอดีเมื่อ floorGap = floorHeight) */
+  zFromMeters(m) {
+    return (m * this.floorGap) / this.floorHeight;
+  }
+
+  /** ระดับพื้นดินบนภาพ (ชั้น 1 = พื้นดิน) */
+  get groundZ() {
+    return (1 - this.minFloor) * this.floorGap;
+  }
+
+  /** ระดับพื้นและระดับหลังคาของปีกอาคารบนภาพ */
+  buildingSpan(shape) {
+    const lo = this.groundZ;
+    return { lo, hi: lo + this.zFromMeters(shape.height) };
+  }
+
+  /**
+   * วาดกล่องอาคารโปร่งแสง
+   * @param {'back'|'front'} pass  back = หน้าที่หันออกจากกล้อง (วาดก่อนเส้นทาง)
+   *                               front = หน้าที่หันเข้าหากล้อง (วาดทับเส้นทาง)
+   */
+  drawBuildings(pass) {
+    if (!this.showBuildings || !this.buildings.length) return;
+    const ctx = this.ctx;
+    const faces = [];
+
+    this.buildingShapes().forEach((shape) => {
+      const span = this.buildingSpan(shape);
+      const bottom = shape.ring.map((q) => this.project({ x: q.x, y: q.y, z: span.lo }));
+      const top = shape.ring.map((q) => this.project({ x: q.x, y: q.y, z: span.hi }));
+      if (bottom.some((q) => !q) || top.some((q) => !q)) return;
+
+      // หลังคาหันเข้าหากล้องเสมอเมื่อมองจากด้านบน ใช้เป็นตัวเทียบทิศของหน้าอื่น
+      const faceSign = Math.sign(screenArea(top)) || 1;
+      const active = this.floor === null || shape.floors.includes(this.floor);
+
+      const add = (pts, kind) => {
+        const isFront = (Math.sign(screenArea(pts)) || 1) === faceSign;
+        if ((pass === 'front') !== isFront) return;
+        faces.push({
+          pts, kind, shape, active,
+          depth: pts.reduce((t, q) => t + q.depth, 0) / pts.length,
+        });
+      };
+
+      add(top, 'roof');
+      add(bottom.slice().reverse(), 'floor');
+      for (let i = 0; i < shape.ring.length; i += 1) {
+        const j = (i + 1) % shape.ring.length;
+        add([bottom[i], bottom[j], top[j], top[i]], 'wall');
+      }
+    });
+
+    if (!faces.length) return;
+    faces.sort((a, b) => b.depth - a.depth);
+
+    ctx.save();
+    ctx.lineJoin = 'round';
+    faces.forEach((f) => {
+      const color = f.shape.b.color || '#64748b';
+      let alpha = BUILDING_ALPHA;
+      if (f.kind === 'roof') alpha *= 1.15;
+      if (f.kind === 'floor') alpha *= 0.55;
+      if (pass === 'front') alpha *= 0.6;   // ด้านใกล้จางกว่า จะได้มองทะลุเห็นเส้นทาง
+      if (!f.active) alpha *= 0.3;
+
+      ctx.beginPath();
+      f.pts.forEach((q, i) => (i ? ctx.lineTo(q.sx, q.sy) : ctx.moveTo(q.sx, q.sy)));
+      ctx.closePath();
+      ctx.fillStyle = rgba(color, alpha);
+      ctx.fill();
+      ctx.strokeStyle = rgba(color, Math.min(0.85, alpha * 3));
+      ctx.lineWidth = f.kind === 'roof' ? 1.4 : 1;
+      ctx.stroke();
+    });
+
+    // เส้นแบ่งชั้นภายในกล่อง วาดตอนผ่าน back รอบเดียว จะได้ไม่ซ้อนกันสองชั้น
+    if (pass === 'back') {
+      this.buildingShapes().forEach((shape) => {
+        const color = shape.b.color || '#64748b';
+        const levels = shape.b.modelFloors || shape.floors.length;
+        for (let k = 1; k < levels; k += 1) {
+          const z = this.groundZ + this.zFromMeters((shape.height * k) / levels);
+          const ring = shape.ring.map((q) => this.project({ x: q.x, y: q.y, z }));
+          if (ring.some((q) => !q)) continue;
+          const walkable = shape.floors.includes(k + 1);
+          const active = this.floor === null || this.floor === k + 1;
+          ctx.beginPath();
+          ring.forEach((q, i) => (i ? ctx.lineTo(q.sx, q.sy) : ctx.moveTo(q.sx, q.sy)));
+          ctx.closePath();
+          ctx.strokeStyle = rgba(color, walkable && active ? 0.45 : 0.15);
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
+      });
+    }
+    ctx.restore();
+  }
+
+  /** ชื่ออาคารลอยอยู่เหนือหลังคา ช่วยให้รู้ว่าเส้นทางผ่านอาคารไหน */
+  drawBuildingLabels() {
+    if (!this.showBuildings || !this.buildings.length) return;
+    const ctx = this.ctx;
+    const th = this._theme;
+    const items = [];
+
+    ctx.save();
+    ctx.font = '700 13px "IBM Plex Sans Thai", system-ui, sans-serif';
+
+    // ปีกที่ใหญ่ที่สุดของอาคารหนึ่งหลัง คือจุดที่วางป้ายชื่อ
+    const pick = new Map();
+    this.buildingShapes().forEach((shape) => {
+      const cur = pick.get(shape.b.id);
+      if (!cur || shape.area > cur.area) pick.set(shape.b.id, shape);
+    });
+
+    pick.forEach((shape) => {
+      const span = this.buildingSpan(shape);
+      const p = this.project({ x: shape.cx, y: shape.cy, z: span.hi + this.floorGap * 0.45 });
+      if (!p) return;
+
+      // กล่องกว้างเท่าไรบนจอ ถ้าชื่อเต็มยาวกว่านั้นให้ใช้ชื่อย่อแทน
+      const corners = shape.ring.map((q) => this.project({ x: q.x, y: q.y, z: span.hi }));
+      let widest = 0;
+      corners.forEach((a) => corners.forEach((c) => {
+        if (a && c) widest = Math.max(widest, Math.abs(a.sx - c.sx));
+      }));
+      const full = shape.b.name;
+      const short = shape.b.shortName || full;
+      const text = ctx.measureText(full).width + 16 > widest ? short : full;
+
+      items.push({
+        p, text,
+        color: shape.b.color || th.label,
+        active: this.floor === null || shape.floors.includes(this.floor),
+      });
+    });
+
+    items.sort((a, b) => b.p.depth - a.p.depth);
+
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const used = [];
+    items.forEach((it) => {
+      const w = ctx.measureText(it.text).width;
+      const box = {
+        x0: it.p.sx - w / 2 - 7, x1: it.p.sx + w / 2 + 7,
+        y0: it.p.sy - 10, y1: it.p.sy + 10,
+      };
+      const hit = used.some((u) => !(box.x1 < u.x0 || box.x0 > u.x1 || box.y1 < u.y0 || box.y0 > u.y1));
+      if (hit) return;
+      used.push(box);
+
+      ctx.globalAlpha = it.active ? 1 : 0.35;
+      ctx.fillStyle = th.labelHalo;
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(box.x0, box.y0, box.x1 - box.x0, 20, 10);
+      else ctx.rect(box.x0, box.y0, box.x1 - box.x0, 20);
+      ctx.fill();
+      ctx.strokeStyle = rgba(it.color, 0.55);
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.fillStyle = it.color;
+      ctx.fillText(it.text, it.p.sx, it.p.sy);
+    });
+    ctx.restore();
+  }
+
 
   /* ---- ระนาบอ้างอิงของแต่ละชั้น ช่วยให้ตาจับความสูงได้ ---- */
   drawFloorPlanes() {
@@ -632,7 +893,17 @@ class Graph3DView {
     const y0 = b.minY - pad;
     const y1 = b.maxY + pad;
 
-    this.floors.forEach((f) => {
+    // ชั้นอยู่ห่างกันแค่ความสูงจริง ถ้าวาดทุกระนาบจะทับกันจนอ่านไม่ออก
+    // จึงวาดเฉพาะชั้นที่เลือก หรือชั้นล่างสุดเมื่อยังไม่ได้ดึงชั้นให้ห่างกัน
+    const spread = this.floorGap >= this.floorHeight * 2;
+    const shown = this.floor !== null
+      ? [this.floor]
+      : (spread ? this.floors : [this.minFloor]);
+
+    // เส้นตารางถี่เท่าไรจึงพอดี ไม่ให้มีเส้นเป็นร้อยบนผังที่ยาวครึ่งกิโลเมตร
+    const step = Math.max(13, Math.ceil((x1 - x0) / 26 / 13) * 13);
+
+    shown.forEach((f) => {
       const z = (f - this.minFloor) * this.floorGap;
       const active = this.floor === null || this.floor === f;
       const corners = [
@@ -655,12 +926,12 @@ class Graph3DView {
       ctx.strokeStyle = th.grid;
       ctx.globalAlpha = active ? 0.55 : 0.25;
       ctx.beginPath();
-      for (let x = x0; x <= x1 + 0.1; x += 13) {
+      for (let x = x0; x <= x1 + 0.1; x += step) {
         const a = this.project({ x, y: y0, z });
         const c = this.project({ x, y: y1, z });
         if (a && c) { ctx.moveTo(a.sx, a.sy); ctx.lineTo(c.sx, c.sy); }
       }
-      for (let y = y0; y <= y1 + 0.1; y += 13) {
+      for (let y = y0; y <= y1 + 0.1; y += step) {
         const a = this.project({ x: x0, y, z });
         const c = this.project({ x: x1, y, z });
         if (a && c) { ctx.moveTo(a.sx, a.sy); ctx.lineTo(c.sx, c.sy); }
@@ -766,6 +1037,7 @@ class Graph3DView {
 
       let r = clamp(p.scale * 0.62, 2.4, 11);
       if (node.type !== 'classroom') r *= 1.25;
+      if (node.type === 'corridor') r *= 0.45;   // จุดต่อทางเดินหน้าห้อง เป็นจุดเล็ก ๆ พอ
       if (isEnd) r *= 1.5;
       if (isSel || isHover) r *= 1.35;
 
@@ -788,8 +1060,11 @@ class Graph3DView {
       ctx.stroke();
       ctx.restore();
 
-      const forced = isEnd || isSel || isHover || (onRoute && node.type !== 'classroom');
-      if (this.showLabels && (forced || (r > 4.2 && alpha > 0.5))) {
+      // โหนดทางเดินหน้าห้องมีเยอะมาก ถ้าติดป้ายทุกตัวภาพจะอ่านไม่ออก
+      const quiet = node.type === 'corridor' || node.type === 'classroom';
+      const forced = isEnd || isSel || isHover || (onRoute && !quiet);
+      const labelled = node.type !== 'corridor' || isSel || isHover;
+      if (this.showLabels && labelled && (forced || (r > 4.2 && alpha > 0.5))) {
         labels.push({
           text: shortLabel(node),
           x: p.sx,

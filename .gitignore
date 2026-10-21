@@ -18,4 +18,9 @@ venv/
 bodin isometric/
 
 # เอกสารอ้างอิงที่มีชื่อครูและข้อมูลภายใน (ไม่ควรเผยแพร่สาธารณะ)
-ref_data/
+ref_data/*
+
+# ยกเว้นรูปทรงอาคารจาก github.com/ThTpk/3D_Map ซึ่งเป็นข้อมูลสาธารณะ
+# และจำเป็นต่อการสร้างไฟล์ใน data/ ใหม่
+!ref_data/3d_map_buildings.js
+!ref_data/3d_map_buildings.json
