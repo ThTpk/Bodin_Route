@@ -859,6 +859,14 @@ code {
 .dialog ul { padding-left: 20px; }
 .dialog li { margin-bottom: 5px; }
 .dialog-foot { margin-top: 22px; text-align: right; }
+.dialog p.hint {
+  margin-top: 10px;
+  padding: 9px 11px;
+  border-left: 3px solid var(--amber, #f59e0b);
+  border-radius: 0 7px 7px 0;
+  background: rgba(245, 158, 11, .1);
+  font-size: 13.5px;
+}
 
 .stat-grid {
   display: grid;

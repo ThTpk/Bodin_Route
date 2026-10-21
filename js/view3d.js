@@ -29,6 +29,11 @@ const TYPE_STYLE = {
   gate:      { color: '#16a34a', glyph: '🚧', label: 'ประตู' },
   toilet:    { color: '#0ea5e9', glyph: '🚻', label: 'ห้องน้ำ' },
   office:    { color: '#ef4444', glyph: '🏢', label: 'ห้องสำนักงาน' },
+  library:   { color: '#7c3aed', glyph: '📚', label: 'หอสมุด' },
+  meeting:   { color: '#8b5cf6', glyph: '🏛️', label: 'หอประบุม' },
+  sport:     { color: '#14b8a6', glyph: '⚽', label: 'สนาม/อาคารกีฬา' },
+  landmark:  { color: '#a16207', glyph: '📍', label: 'จุดสังเกต' },
+  plaza:     { color: '#38bdf8', glyph: '', label: 'ลานกลางแจ้ง' },
 };
 
 /** สีและความหนาของเส้นเชื่อมแต่ละชนิด */
@@ -39,6 +44,8 @@ const EDGE_STYLE = {
   stairs:       { color: '#f59e0b', width: 2.4 },
   bridge:       { color: '#22c55e', width: 2.6 },
   elevator:     { color: '#a855f7', width: 2.4 },
+  outdoor:      { color: '#38bdf8', width: 1.8 },
+  entrance:     { color: '#10b981', width: 1.8 },
 };
 
 const DEFAULT_EDGE_STYLE = { color: '#94a3b8', width: 1.6 };

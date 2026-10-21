@@ -575,6 +575,8 @@ function buildLegend() {
     bridge: 'ทางเชื่อมระหว่างอาคาร',
     elevator: 'ลิฟต์',
     ramp: 'ทางลาด',
+    outdoor: 'ทางเดินกลางแจ้ง',
+    entrance: 'ทางเข้าอาคาร',
   };
   $('#legend-edges').innerHTML = edgeTypes.map((t) => {
     const s = EDGE_STYLE[t] || { color: '#94a3b8' };

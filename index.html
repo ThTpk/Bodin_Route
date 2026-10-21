@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>กราฟเส้นทางภายในอาคาร — มุมมอง 3 มิติ</title>
-<meta name="description" content="แสดงโหนดและเส้นเชื่อมของอาคารเรียน 7 หลังเป็นภาพ 3 มิติที่หมุน เลื่อน และซูมได้ พร้อมค้นหาเส้นทางสั้นที่สุดด้วย Dijkstra และ A*">
+<meta name="description" content="กราฟเส้นทางภายในโรงเรียนบดินทรเดชา (สิงห์ สิงหเสนี) ถอดจากผัง 3 มิติของโรงเรียน แสดงโหนดและเส้นเชื่อมเป็นภาพ 3 มิติที่หมุน เลื่อน และซูมได้ พร้อมค้นหาเส้นทางสั้นที่สุดด้วย Dijkstra และ A*">
 <meta name="theme-color" content="#1e3a8a">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -19,7 +19,7 @@
     <span class="brand-mark" aria-hidden="true">🧭</span>
     <div class="brand-text">
       <h1>กราฟเส้นทางภายในอาคาร</h1>
-      <p>โหนดและเส้นเชื่อมจากไฟล์ข้อมูล · มุมมอง 3 มิติ</p>
+      <p>โรงเรียนบดินทรเดชา (สิงห์ สิงหเสนี) · มุมมอง 3 มิติ</p>
     </div>
   </div>
   <nav class="topbar-actions">
@@ -44,7 +44,7 @@
           <label class="picker-label" for="input-start">จากโหนดไหน</label>
           <div class="picker-control">
             <span class="picker-pin picker-pin--a">A</span>
-            <input type="text" id="input-start" placeholder="เช่น 1101, บันได 1ก, ทางเชื่อม" role="combobox" aria-expanded="false" aria-controls="list-start">
+            <input type="text" id="input-start" placeholder="เช่น 1101, หอสมุด, สนามกีฬา" role="combobox" aria-expanded="false" aria-controls="list-start">
             <button type="button" class="picker-clear" aria-label="ล้างจุดเริ่มต้น">✕</button>
           </div>
           <div class="picker-list" id="list-start" role="listbox"></div>
@@ -56,7 +56,7 @@
           <label class="picker-label" for="input-goal">ไปโหนดไหน</label>
           <div class="picker-control">
             <span class="picker-pin picker-pin--b">B</span>
-            <input type="text" id="input-goal" placeholder="เช่น 7501, ห้อง 4210" role="combobox" aria-expanded="false" aria-controls="list-goal">
+            <input type="text" id="input-goal" placeholder="เช่น 5312, ตึก 7, สระว่ายน้ำ" role="combobox" aria-expanded="false" aria-controls="list-goal">
             <button type="button" class="picker-clear" aria-label="ล้างจุดหมาย">✕</button>
           </div>
           <div class="picker-list" id="list-goal" role="listbox"></div>
@@ -114,7 +114,8 @@
     <section class="panel" id="detail-panel" hidden></section>
 
     <p class="sidebar-foot">
-      ค้นด้วยรหัสห้อง (<code>2305</code> = อาคาร 2 ชั้น 3 ห้อง 05) หรือชื่อบันได (<code>บันได 1ก</code>) ก็ได้<br>
+      ค้นด้วยรหัสห้อง (<code>2305</code> = ตึก 2 ชั้น 3 ห้อง 05) ชื่อสถานที่ (<code>หอสมุด</code>, <code>สนามกีฬา</code>)
+      หรือชื่อบันได (<code>บันไดต.1ตะวันตก</code>) ก็ได้<br>
       ภาพทั้งหมดวาดจาก <code>data/nodes.json</code> และ <code>data/edges.json</code> เท่านั้น
       สร้างใหม่ได้ด้วย <code>python tools/generate_data.py</code>
     </p>
@@ -195,27 +196,39 @@
   </div>
 
   <h3>โครงสร้างข้อมูล</h3>
+  <p>
+    ผังทั้งหมดถอดมาจาก <a href="https://thtpk.github.io/3D_Map/" target="_blank" rel="noopener">ผัง 3 มิติของโรงเรียน</a>
+    โดยคิดอาคารแต่ละหลังเป็น <strong>แนวทางเดินกลางอาคาร</strong> แล้วแปลงพิกัดภูมิศาสตร์เป็นพิกัดเมตร
+    (x = ทิศตะวันออก, y = ทิศเหนือ)
+  </p>
   <ul>
-    <li><strong>อาคาร 7 หลัง</strong> แบ่งเป็นสองโซนวางขนานกัน —
-      โซนตะวันตกคืออาคาร 1–4 และโซนตะวันออกคืออาคาร 5–7
-      แต่ละอาคารสูง <strong>4 หรือ 5 ชั้น</strong> ชั้นละ <strong>10 ห้อง</strong>
-      (อาคาร 1, 3, 5, 7 สูง 5 ชั้น ส่วนอาคาร 2, 4, 6 สูง 4 ชั้น)</li>
-    <li><strong>บันได 3 ตำแหน่งต่อชั้น</strong> — ก (ก่อนห้อง 01), ข (ระหว่างห้อง 05 กับ 06), ค (หลังห้อง 10)
+    <li><strong>อาคารเรียน 8 หลัง</strong> —
+      ตึก 1, 2, 3 (4 ชั้น ยาวราว 105 ม. แนวตะวันตก–ตะวันออก),
+      ตึก 4 (4 ชั้น ยาวราว 67 ม.),
+      ตึก 5 (4 ชั้น ยาวราว 144 ม. แนวเหนือ–ใต้ เป็นแกนที่ตึก 1–3 ต่อเข้ามา),
+      อาคารเชื่อม (4 ชั้น เชื่อมตึก 1–4 ตรงกลาง),
+      ตึก 7 (4 ชั้น ด้านใต้) และ
+      อาคารเฉลิมพระเกียรติ (2 ชั้น ชั้นล่างเป็นหอสมุดคุณหญิงนครราชเสนี)</li>
+    <li><strong>บันไดอยู่ด้านข้างอาคาร</strong> — หัวและท้ายของแนวทางเดินทุกหลัง
       แต่ละชั้นมีโหนดบันไดของตัวเอง แล้วเชื่อมชั้นต่อชั้นด้วยเส้นเชื่อมชนิดบันได
-      จึงเป็นทางเดียวที่ข้ามชั้นภายในอาคารได้</li>
-    <li><strong>ทางเชื่อมระหว่างอาคาร 7 จุด</strong> แต่ละจุดเป็นโหนดชนิด <code>bridge</code> ของตัวเอง
-      <ul>
-        <li>ภายในโซน 5 จุดที่ชั้น 2 — อาคาร 1–2, 2–3, 3–4, 5–6 และ 6–7
-          เชื่อมบริเวณห้อง 10 ของอาคารหนึ่งกับห้อง 01 ของอาคารถัดไป</li>
-        <li>ข้ามโซน 2 จุด — อาคาร 1–5 ที่ชั้น 2 และอาคาร 3–7 ที่ชั้น 3
-          เชื่อมบันได ค กับบันได ก ของอีกโซน ทำให้กราฟมีวงรอบ
-          จึงมีเส้นทางให้เลือกมากกว่าหนึ่งทางจริง ๆ</li>
-      </ul></li>
+      (ขึ้นกับลงใช้เวลาไม่เท่ากัน จึงเก็บเป็นเส้นแบบมีทิศทาง)</li>
+    <li><strong>ทางเดินเชื่อม</strong> — ทางเดินเชื่อมฝั่งตะวันตก 2 ช่วง (ตึก 1–2 และ ตึก 2–3)
+      มีเฉพาะ <strong>ชั้น 3–4</strong> เพราะชั้นล่างสองชั้นเป็นเสาสูงโล่ง
+      และทางเดินซุ้มโค้ง (ชั้น 1–3) เชื่อมอาคารบดินทรพิพัฒน์กับตึก 1</li>
+    <li><strong>ทางแยกระหว่างอาคาร</strong> — จุดที่แนวทางเดินสองอาคารบรรจบกันเป็นโหนดชนิด
+      <code>junction</code> ใช้ร่วมกันทั้งสองแนว ทำให้กราฟมีวงรอบ จึงมีหลายเส้นทางให้เลือกจริง ๆ</li>
+    <li><strong>ทางเดินกลางแจ้ง</strong> — ลานหน้าอาคารและลานกลางที่ระดับชั้น 1
+      เชื่อมกลุ่มตึก 1–5 เข้ากับหอประชุม สนามกีฬา เรือนไทย อาคารกีฬา สระว่ายน้ำ และตึก 7</li>
   </ul>
 
   <h3>รหัสห้อง</h3>
   <p>
-    ใช้รูปแบบ [อาคาร][ชั้น][เลขห้อง] เช่น <code>2305</code> คือ อาคาร 2 ชั้น 3 ห้อง 05
+    ใช้รูปแบบ [อาคาร][ชั้น][เลขห้อง] เช่น <code>2305</code> คือ ตึก 2 ชั้น 3 ห้อง 05
+    (อาคารเชื่อมใช้รหัส 6 และอาคารเฉลิมพระเกียรติใช้รหัส 8)
+  </p>
+  <p class="hint">
+    <strong>จำนวนห้องต่อชั้นยังเป็นค่าตั้งต้น</strong> ประมาณจากความยาวอาคาร ไม่ใช่ผังห้องจริง
+    แก้คีย์ <code>rooms</code> ของอาคารนั้นใน <code>tools/generate_data.py</code> แล้วรันสคริปต์ใหม่ได้เลย
   </p>
 
   <h3>การฉายภาพ 3 มิติ</h3>

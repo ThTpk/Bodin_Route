@@ -943,7 +943,7 @@ async function loadRealData() {
     setAll(texts);
     state.drewOnce = false;
     apply();
-    toast('โหลดข้อมูลจริงจากโฟลเดอร์ data/ แล้ว (7 อาคาร)');
+    toast('โหลดข้อมูลจริงของโรงเรียนจากโฟลเดอร์ data/ แล้ว');
   } catch (err) {
     toast(location.protocol === 'file:'
       ? 'โหลดไม่ได้เพราะเปิดหน้าเว็บแบบ file:// — ให้เปิดผ่านเว็บเซิร์ฟเวอร์'

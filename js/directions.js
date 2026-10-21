@@ -35,7 +35,8 @@ const TYPE_LABEL = {
   corridor: 'ทางเดิน',
   junction: 'ทางแยก',
   landmark: 'จุดสังเกต',
-  sport: 'สนามกีฬา',
+  sport: 'สนาม/อาคารกีฬา',
+  plaza: 'ลานกลางแจ้ง',
 };
 
 function typeLabel(type) {

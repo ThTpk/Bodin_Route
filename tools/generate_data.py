@@ -2,32 +2,40 @@
 """
 generate_data.py
 ------------------------------------------------------------------
-สร้างชุดข้อมูลกราฟ (nodes / edges / buildings) ตามโครงสร้างอาคารที่กำหนด
+สร้างชุดข้อมูลกราฟ (nodes / edges / buildings) ของโรงเรียนบดินทรเดชา (สิงห์ สิงหเสนี)
+ให้สอดคล้องกับผัง 3 มิติที่ https://thtpk.github.io/3D_Map/
 
     python tools/generate_data.py
 
-โครงสร้างที่สร้าง
-  - อาคาร 7 หลัง แบ่งเป็นสองโซนวางขนานกัน
-        โซนตะวันตก : อาคาร 1, 2, 3, 4   (เรียงตามแนวแกน Y)
-        โซนตะวันออก: อาคาร 5, 6, 7      (เรียงตามแนวแกน Y ห่างออกไปตามแกน X)
-  - แต่ละอาคารสูง 4 หรือ 5 ชั้น ชั้นละ 10 ห้อง
-  - บันไดของแต่ละอาคาร 3 ตำแหน่ง
-        ก = ก่อนห้อง 01
-        ข = ระหว่างห้อง 05 กับ 06
-        ค = หลังห้อง 10
-    สร้างเป็นโหนดแยกทุกชั้น แล้วเชื่อมชั้นต่อชั้นด้วยเส้นเชื่อมชนิดบันได
-  - ทางเชื่อมระหว่างอาคาร 7 จุด (ดูตาราง BRIDGES)
-        ภายในโซน  : เชื่อมห้อง 10 ของอาคารหนึ่งกับห้อง 01 ของอาคารถัดไป ที่ชั้น 2
-        ข้ามโซน    : เชื่อมบันได ค กับบันได ก ของอีกโซน ที่ชั้น 2 และชั้น 3
-    ทางเชื่อมข้ามโซนทำให้กราฟมีวงรอบ (cycle) จึงมีหลายเส้นทางให้เลือกจริง ๆ
+ที่มาของผัง
+  ตารางอาคารด้านล่างถอดมาจาก buildings.js ของเว็บ 3D Map โดยตรง
+  โดยคิดเป็น "แนวทางเดินกลางอาคาร" (centerline) = จุดกึ่งกลางผนังหัวท้ายของอาคาร
+  แล้วแปลงพิกัดภูมิศาสตร์ (lon/lat) เป็นพิกัดเมตรในระนาบ โดย
+        x = ทิศตะวันออก (เมตร)   y = ทิศเหนือ (เมตร)
+  จุดกำเนิด (0, 0) อยู่กลางกลุ่มอาคารเรียน ดูค่า LON0 / LAT0
 
-ผังพิกัด (หน่วยเมตร เป็นผังจำลองตามสัดส่วน ไม่ใช่แบบแปลนจริง)
-  - แต่ละอาคารเป็นทางเดินยาวตามแนวแกน X มีโหนดเรียงเป็นสาย
-        [บันได ก] 01 02 03 04 05 [บันได ข] 06 07 08 09 10 [บันได ค]
-  - อาคารในโซนเดียวกันวางขนานกันตามแนวแกน Y ห่างกัน 26 เมตร
-    และเรียงเลขห้องสลับทิศ (flip) เพื่อให้ห้อง 10 ของอาคารก่อนหน้า
-    อยู่ตรงข้ามกับห้อง 01 ของอาคารถัดไปพอดี ทางเชื่อมจึงเป็นเส้นตรงสั้น ๆ
-  - แกน Z (ความสูง) คำนวณจากชั้นตอนวาดภาพ 3 มิติ ไม่ได้เก็บในไฟล์
+โครงสร้างที่สร้าง
+  อาคารเรียน (มีห้องเรียนและบันได)
+        ตึก 1, 2, 3        4 ชั้น  ทอดตามแนวตะวันตก-ตะวันออก ยาวราว 105 ม.
+        ตึก 4              4 ชั้น  ยาวราว 67 ม.
+        ตึก 5              4 ชั้น  แนวเหนือ-ใต้ฝั่งตะวันออก ยาวราว 144 ม. ตึก 1-3 ต่อเข้าอาคารนี้
+        อาคารเชื่อม         4 ชั้น  แนวเหนือ-ใต้ตรงกลาง เชื่อมตึก 1-4
+        ตึก 7              4 ชั้น  แยกอยู่ด้านใต้ เดินถึงทางทางเดินกลางแจ้ง
+        อาคารเฉลิมพระเกียรติ 2 ชั้น  ด้านเหนือ ชั้นล่างเป็นหอสมุดคุณหญิงนครราชเสนี
+  ทางเดินเชื่อม (ไม่มีห้อง)
+        ทางเดินเชื่อม ฝั่งตะวันตก 2 ช่วง (ตึก 1-2 และ ตึก 2-3) มีเฉพาะชั้น 3-4
+        ทางเดินซุ้มโค้ง เชื่อมอาคารบดินทรพิพัฒน์กับตึก 1 ชั้น 1-3
+  สถานที่อื่น (โหนดเดียวที่ชั้น 1)
+        อาคารบดินทรพิพัฒน์ (หอประชุม), อาคารกีฬาในร่ม, อาคารศูนย์กีฬา,
+        สระว่ายน้ำ, อาคารหลังคาสีน้ำเงิน, สนามกีฬา, อัฒจันทร์, เรือนไทย
+  ทางเดินกลางแจ้ง
+        ลานหน้าอาคารและลานกลางเชื่อมทุกโซนเข้าด้วยกันที่ระดับชั้น 1
+
+บันไดอยู่ "ด้านข้างอาคาร" ตามที่กำหนด คือหัวและท้ายของแนวทางเดิน (ค่า STAIR_T)
+ถ้าอาคารใดมีบันไดกลางอาคารเพิ่ม ใส่คีย์ "stairs" ของอาคารนั้นเป็นรายการตำแหน่งได้เลย
+
+** จำนวนห้องต่อชั้นในตาราง WINGS เป็นค่าตั้งต้น (ประมาณจากความยาวอาคาร) **
+** ยังไม่ใช่ผังห้องจริง ให้แก้คีย์ "rooms" ของอาคารนั้นแล้วรันสคริปต์นี้ใหม่  **
 ------------------------------------------------------------------
 รันสคริปต์นี้ใหม่ได้ทุกเมื่อ ไฟล์ใน data/ จะถูกเขียนทับทั้งหมด
 """
@@ -44,139 +52,380 @@ if hasattr(sys.stdout, "reconfigure"):
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA = os.path.join(ROOT, "data")
 
+SOURCE = "ถอดจากผัง 3 มิติ https://thtpk.github.io/3D_Map/ (buildings.js) ด้วย tools/generate_data.py"
+
 # ------------------------------------------------------------------
-# ค่าคงที่ของผัง
+# การแปลงพิกัด lon/lat -> เมตร
 # ------------------------------------------------------------------
-ROOMS = 10
-SLOTS = 12             # จำนวนช่วงบนทางเดินหนึ่งชั้น (13 ช่อง = 12 ช่วง)
+LON0 = 100.61525          # จุดกำเนิดแกน x (ลองจิจูด)
+LAT0 = 13.76730           # จุดกำเนิดแกน y (ละติจูด)
+M_PER_DEG_LAT = 111320.0
+M_PER_DEG_LON = 111320.0 * math.cos(math.radians(LAT0))
 
-SPACING = 4.0          # ระยะห่างระหว่างจุดบนทางเดิน (เมตร)
-WING_GAP = 26.0        # ระยะห่างระหว่างอาคารในโซนเดียวกัน (เมตร)
-ZONE_GAP = 28.0        # ระยะห่างระหว่างปลายอาคารของสองโซน (เมตร)
-FLOOR_HEIGHT = 4.0     # ความสูงต่อชั้น (เมตร)
-WALK_SPEED = 1.3       # ความเร็วเดินเฉลี่ย (เมตร/วินาที)
 
-STAIR_DISTANCE = 7.5   # ระยะเดินจริงของบันไดหนึ่งช่วงชั้น (เมตร)
-STAIR_TIME_UP = 20     # วินาที
-STAIR_TIME_DOWN = 15   # วินาที
+def to_xy(ll):
+    """แปลง [lon, lat] เป็น (x, y) หน่วยเมตร"""
+    return ((ll[0] - LON0) * M_PER_DEG_LON, (ll[1] - LAT0) * M_PER_DEG_LAT)
 
-SPAN = SLOTS * SPACING            # ความยาวทางเดินหนึ่งชั้น = 48 เมตร
-ZONE_X = SPAN + ZONE_GAP          # จุดเริ่มต้นของโซนตะวันออก = 76 เมตร
 
-# บันไดสามตำแหน่ง: (รหัส, ชื่อไทย, ตำแหน่งในสาย, คำอธิบาย)
-STAIRS = [
-    ("A", "ก", 0, "ก่อนห้อง 01"),
-    ("B", "ข", 6, "ระหว่างห้อง 05 กับห้อง 06"),
-    ("C", "ค", 12, "หลังห้อง 10"),
+# ------------------------------------------------------------------
+# ค่าคงที่ของกราฟ
+# ------------------------------------------------------------------
+FLOOR_HEIGHT = 3.6        # ความสูงต่อชั้น (เมตร) ตามที่ 3D Map ใช้
+WALK_SPEED = 1.3          # ความเร็วเดินเฉลี่ยในอาคาร (เมตร/วินาที)
+OUTDOOR_SPEED = 1.4       # ความเร็วเดินกลางแจ้ง (เมตร/วินาที)
+
+STAIR_DISTANCE = 7.0      # ระยะเดินจริงของบันไดหนึ่งช่วงชั้น (เมตร)
+STAIR_TIME_UP = 19        # วินาที
+STAIR_TIME_DOWN = 14      # วินาที
+
+STAIR_T = (0.0, 1.0)      # บันไดมาตรฐาน: หัวและท้ายอาคาร (ด้านข้างอาคาร)
+ENTRANCE_OFFSET = 6.0     # ระยะที่โหนดทางเข้ายื่นออกจากตัวอาคาร (เมตร)
+MIN_EDGE = 1.0            # ความยาวเส้นเชื่อมต่ำสุด กันเส้นยาวศูนย์เมตร
+
+
+# ------------------------------------------------------------------
+# ตารางอาคารที่มีแนวทางเดินเป็นเส้นตรง (wing)
+#   line   : [lon, lat] ของจุดกึ่งกลางผนังหัว และ ท้ายอาคาร
+#   ends   : ชื่อเรียกปลายทั้งสองข้าง ใช้ตั้งชื่อบันไดและทางเข้า
+#   width  : ความกว้างอาคาร (เมตร) ใช้คำนวณกรอบอาคารในไฟล์ buildings.json
+#   rooms  : จำนวนห้องต่อชั้น (ค่าตั้งต้น ปรับได้) ใส่เป็น dict ชั้น -> จำนวน หรือ int
+#   voids  : ช่วงที่ชั้นล่างเปิดโล่งไม่มีห้อง (from_m/to_m วัดจากปลาย line[0])
+#   stairs : ตำแหน่งบันไดตามแนวทางเดิน 0.0 = หัว, 1.0 = ท้าย (ค่าปริยาย STAIR_T)
+#   corridorType : ชนิดเส้นเชื่อมภายในแนวทางเดิน
+# ------------------------------------------------------------------
+WINGS = [
+    {
+        "id": "chalerm", "code": "8", "name": "อาคารเฉลิมพระเกียรติ", "short": "อ.เฉลิมฯ",
+        "kind": "อาคารเรียน / หอสมุด", "zone": "โซนเหนือ", "color": "#f59e0b",
+        "floors": [1, 2], "rooms": {1: 2, 2: 5}, "width": 27.0,
+        "line": [[100.6151832, 13.7684764], [100.6156313, 13.7685484]],
+        "ends": ("ตะวันตก", "ตะวันออก"),
+        "desc": "อาคารเฉลิมพระเกียรติ ๖๐ พรรษา ๕ ธันวาคม ๒๕๓๐ ชั้นล่างเป็นที่ตั้งของหอสมุดคุณหญิงนครราชเสนี",
+        "extras": [
+            {"suffix": "library", "name": "หอสมุดคุณหญิงนครราชเสนี", "type": "library",
+             "floor": 1, "t": 0.5, "aliases": ["หอสมุด", "ห้องสมุด"]},
+        ],
+    },
+    {
+        "id": "b1", "code": "1", "name": "ตึก 1", "short": "ต.1",
+        "kind": "อาคารเรียน", "zone": "กลุ่มอาคารเรียน", "color": "#2563eb",
+        "floors": [1, 2, 3, 4], "rooms": {1: 9, 2: 9, 3: 12, 4: 12}, "width": 13.0,
+        "line": [[100.61470605, 13.7677300], [100.61567260, 13.76789745]],
+        "ends": ("ตะวันตก", "ตะวันออก"),
+        "voids": [{"floors": [1, 2], "from_m": 76.5, "to_m": 100.4}],
+        "desc": "อาคารเรียนแนวตะวันตก-ตะวันออก ปลายด้านตะวันออกต่อเข้าตึก 5 "
+                "ช่วงระหว่างอาคารเชื่อมกับตึก 5 ชั้น 1-2 เปิดโล่งเป็นทางเดินผ่านไปลานกลาง",
+    },
+    {
+        "id": "b2", "code": "2", "name": "ตึก 2", "short": "ต.2",
+        "kind": "อาคารเรียน", "zone": "กลุ่มอาคารเรียน", "color": "#7c3aed",
+        "floors": [1, 2, 3, 4], "rooms": {1: 9, 2: 9, 3: 12, 4: 12}, "width": 13.0,
+        "line": [[100.61476815, 13.76740775], [100.61572870, 13.76757675]],
+        "ends": ("ตะวันตก", "ตะวันออก"),
+        "voids": [{"floors": [1, 2], "from_m": 75.9, "to_m": 99.7}],
+        "desc": "อาคารเรียนแนวตะวันตก-ตะวันออก ปลายด้านตะวันออกต่อเข้าตึก 5 "
+                "ช่วงระหว่างอาคารเชื่อมกับตึก 5 ชั้น 1-2 เปิดโล่งเป็นทางเดินผ่านไปลานกลาง",
+    },
+    {
+        "id": "b3", "code": "3", "name": "ตึก 3", "short": "ต.3",
+        "kind": "อาคารเรียน", "zone": "กลุ่มอาคารเรียน", "color": "#0d9488",
+        "floors": [1, 2, 3, 4], "rooms": {1: 9, 2: 9, 3: 12, 4: 12}, "width": 13.0,
+        "line": [[100.61483075, 13.76709110], [100.61578645, 13.76724715]],
+        "ends": ("ตะวันตก", "ตะวันออก"),
+        "voids": [{"floors": [1, 2], "from_m": 75.1, "to_m": 99.0}],
+        "desc": "อาคารเรียนแนวตะวันตก-ตะวันออก ปลายด้านตะวันออกต่อเข้าตึก 5 "
+                "ช่วงระหว่างอาคารเชื่อมกับตึก 5 ชั้น 1-2 เปิดโล่งเป็นทางเดินผ่านไปลานกลาง",
+    },
+    {
+        "id": "b4", "code": "4", "name": "ตึก 4", "short": "ต.4",
+        "kind": "อาคารเรียน", "zone": "กลุ่มอาคารเรียน", "color": "#db2777",
+        "floors": [1, 2, 3, 4], "rooms": 8, "width": 13.0,
+        "line": [[100.61488510, 13.76676000], [100.61549260, 13.76686440]],
+        "ends": ("ตะวันตก", "ตะวันออก"),
+        "desc": "อาคารเรียนแนวตะวันตก-ตะวันออกหลังใต้สุดของกลุ่มตึก 1-4 "
+                "ปลายด้านตะวันออกจบที่อาคารเชื่อม",
+    },
+    {
+        "id": "b5", "code": "5", "name": "ตึก 5", "short": "ต.5",
+        "kind": "อาคารเรียน", "zone": "กลุ่มอาคารเรียน (แนวตะวันออก)", "color": "#ea580c",
+        "floors": [1, 2, 3, 4], "rooms": 16, "width": 13.0,
+        "line": [[100.61566895, 13.76799860], [100.61589255, 13.76672140]],
+        "ends": ("เหนือ", "ใต้"),
+        "desc": "อาคารเรียนยาวแนวเหนือ-ใต้ฝั่งตะวันออก เป็นแกนที่ตึก 1, 2 และ 3 ต่อเข้ามา",
+    },
+    {
+        "id": "link", "code": "6", "name": "อาคารเชื่อม", "short": "อ.เชื่อม",
+        "kind": "อาคารเรียน (แนวเหนือ-ใต้)", "zone": "กลุ่มอาคารเรียน (แนวกลาง)", "color": "#0891b2",
+        "floors": [1, 2, 3, 4], "rooms": 10, "width": 13.0,
+        "line": [[100.61533840, 13.76782585], [100.61550395, 13.76688000]],
+        "ends": ("เหนือ", "ใต้"),
+        "desc": "อาคารแนวเหนือ-ใต้ที่เชื่อมตึก 1 ถึงตึก 4 เข้าด้วยกันตรงกลางอาคาร "
+                "รหัสห้อง 6 เป็นค่าตั้งต้น เพราะผัง 3 มิติไม่มีตึก 6",
+    },
+    {
+        "id": "b7", "code": "7", "name": "ตึก 7", "short": "ต.7",
+        "kind": "อาคารเรียน", "zone": "โซนใต้", "color": "#65a30d",
+        "floors": [1, 2, 3, 4], "rooms": 6, "width": 28.0,
+        "line": [[100.6151760, 13.7661442], [100.6155275, 13.7661818]],
+        "ends": ("ตะวันตก", "ตะวันออก"),
+        "desc": "อาคารเรียนด้านใต้ของโรงเรียน แยกจากกลุ่มตึก 1-5 เดินถึงได้ทางทางเดินกลางแจ้ง",
+    },
+    {
+        "id": "wk1", "code": "", "name": "ทางเดินเชื่อม ตึก 1-2", "short": "ทช.1-2",
+        "kind": "ทางเดินเชื่อมอาคาร", "zone": "ทางเดินเชื่อม", "color": "#94a3b8",
+        "floors": [3, 4], "rooms": 0, "width": 6.0, "stairs": (),
+        "corridorType": "bridge",
+        "line": [[100.61486890, 13.76774450], [100.61492075, 13.76744830]],
+        "ends": ("เหนือ", "ใต้"),
+        "desc": "ทางเดินเชื่อมฝั่งตะวันตกระหว่างตึก 1 กับตึก 2 "
+                "ชั้นล่าง 2 ชั้นเป็นเสาสูงโล่ง มีทางเดินเฉพาะชั้น 3 และชั้น 4",
+    },
+    {
+        "id": "wk2", "code": "", "name": "ทางเดินเชื่อม ตึก 2-3", "short": "ทช.2-3",
+        "kind": "ทางเดินเชื่อมอาคาร", "zone": "ทางเดินเชื่อม", "color": "#94a3b8",
+        "floors": [3, 4], "rooms": 0, "width": 6.0, "stairs": (),
+        "corridorType": "bridge",
+        "line": [[100.61496415, 13.76742855], [100.61501555, 13.76713490]],
+        "ends": ("เหนือ", "ใต้"),
+        "desc": "ทางเดินเชื่อมฝั่งตะวันตกระหว่างตึก 2 กับตึก 3 "
+                "ชั้นล่าง 2 ชั้นเป็นเสาสูงโล่ง มีทางเดินเฉพาะชั้น 3 และชั้น 4",
+    },
+    {
+        "id": "arcade", "code": "", "name": "ทางเดินซุ้มโค้ง", "short": "ซุ้มโค้ง",
+        "kind": "ทางเดินเชื่อมอาคาร", "zone": "ทางเดินเชื่อม", "color": "#2b3a66",
+        "floors": [1, 2, 3], "rooms": 0, "width": 5.0, "stairs": (1.0,),
+        "corridorType": "bridge",
+        "line": [[100.61535535, 13.76789785], [100.61534020, 13.76800920]],
+        "ends": ("ใต้", "เหนือ"),
+        "desc": "ทางเดินเชื่อมระหว่างอาคารบดินทรพิพัฒน์กับตึก 1 ชั้นล่างเป็นทางเดินโล่ง "
+                "ชั้น 2-3 เป็นระเบียงทางเดินซุ้มโค้ง บันไดอยู่ปลายด้านอาคารบดินทรพิพัฒน์",
+    },
 ]
 
-# ตำแหน่งของห้องแต่ละเลขในสายทางเดิน (ช่อง 0-12 รวมบันไดสามจุด)
-ROOM_SLOT = {r: (r if r <= 5 else r + 1) for r in range(1, ROOMS + 1)}
+WING_BY_ID = {w["id"]: w for w in WINGS}
 
 # ------------------------------------------------------------------
-# ตารางอาคาร
-#   floors = จำนวนชั้น (4 หรือ 5)
-#   x0     = พิกัด X ของช่องแรกของอาคาร
-#   y      = พิกัด Y ของแนวทางเดิน
-#   flip   = True ให้เรียงเลขห้องกลับทิศ (ห้อง 01 อยู่ปลายด้าน X มาก)
+# จุดที่แนวทางเดินของสองอาคารตัดกัน (ทางแยกเชื่ออาคาร)
+#   สร้างโหนดชนิด junction หนึ่งตัวต่อหนึ่งคู่หนึ่งชั้น ใช้ร่วมกันทั้งสองแนว
+#   ชั้นที่เกิดทางแยก = ชั้นที่ทั้งสองอาคารมีร่วมกัน
 # ------------------------------------------------------------------
-BUILDINGS = [
-    {"id": 1, "floors": 5, "x0": 0.0,    "y": 0.0 * WING_GAP, "flip": False,
-     "color": "#2563eb", "zone": "ตะวันตก"},
-    {"id": 2, "floors": 4, "x0": 0.0,    "y": 1.0 * WING_GAP, "flip": True,
-     "color": "#7c3aed", "zone": "ตะวันตก"},
-    {"id": 3, "floors": 5, "x0": 0.0,    "y": 2.0 * WING_GAP, "flip": False,
-     "color": "#0d9488", "zone": "ตะวันตก"},
-    {"id": 4, "floors": 4, "x0": 0.0,    "y": 3.0 * WING_GAP, "flip": True,
-     "color": "#db2777", "zone": "ตะวันตก"},
-    {"id": 5, "floors": 5, "x0": ZONE_X, "y": 0.0 * WING_GAP, "flip": False,
-     "color": "#ea580c", "zone": "ตะวันออก"},
-    {"id": 6, "floors": 4, "x0": ZONE_X, "y": 1.0 * WING_GAP, "flip": True,
-     "color": "#65a30d", "zone": "ตะวันออก"},
-    {"id": 7, "floors": 5, "x0": ZONE_X, "y": 2.0 * WING_GAP, "flip": False,
-     "color": "#0891b2", "zone": "ตะวันออก"},
+JUNCTIONS = [
+    ("b1", "link"), ("b2", "link"), ("b3", "link"), ("b4", "link"),
+    ("b1", "b5"), ("b2", "b5"), ("b3", "b5"),
+    ("b1", "wk1"), ("b2", "wk1"),
+    ("b2", "wk2"), ("b3", "wk2"),
+    ("b1", "arcade"),
 ]
 
-BUILDING_BY_ID = {b["id"]: b for b in BUILDINGS}
-
 # ------------------------------------------------------------------
-# ตารางทางเชื่อมระหว่างอาคาร
-#   (อาคาร ก, อาคาร ข, ชั้น, ปลายทางฝั่ง ก, ปลายทางฝั่ง ข)
-#   ปลายทางเป็น ("room", เลขห้อง) หรือ ("stair", รหัสบันได)
+# สถานที่อื่นที่เป็นโหนดเดียว (ชั้น 1) — พิกัดจากจุดกลางอาคารในผัง 3 มิติ
+#   (id, ชื่อ, ชนิดโหนด, lon, lat, ขนาดกรอบอาคาร (เมตร), คำอธิบาย)
 # ------------------------------------------------------------------
-BRIDGES = [
-    (1, 2, 2, ("room", ROOMS), ("room", 1)),
-    (2, 3, 2, ("room", ROOMS), ("room", 1)),
-    (3, 4, 2, ("room", ROOMS), ("room", 1)),
-    (5, 6, 2, ("room", ROOMS), ("room", 1)),
-    (6, 7, 2, ("room", ROOMS), ("room", 1)),
-    (1, 5, 2, ("stair", "C"), ("stair", "A")),
-    (3, 7, 3, ("stair", "C"), ("stair", "A")),
+PLACES = [
+    ("bodin", "อาคารบดินทรพิพัฒน์", "meeting", 100.6154275, 13.7681634, 45.0,
+     "หอประชุมของโรงเรียน อยู่ด้านเหนือของตึก 1 เดินเข้าได้ทางทางเดินซุ้มโค้ง", "#8b5cf6"),
+    ("hall", "อาคารกีฬาในร่ม", "sport", 100.6155976, 13.7669113, 34.0,
+     "อาคารกีฬาในร่ม อยู่ระหว่างตึก 4 กับตึก 5", "#14b8a6"),
+    ("sport", "อาคารศูนย์กีฬา", "sport", 100.6156963, 13.7665159, 42.0,
+     "อาคารศูนย์กีฬา อยู่ด้านใต้ของกลุ่มอาคารเรียน", "#14b8a6"),
+    ("pool", "สระว่ายน้ำ", "sport", 100.6150132, 13.7661442, 34.0,
+     "สระว่ายน้ำมีหลังคาคลุม อยู่ด้านตะวันตกของตึก 7", "#0ea5e9"),
+    ("blue", "อาคารหลังคาสีน้ำเงิน", "landmark", 100.6152579, 13.7665637, 30.0,
+     "อาคารหลังคาสีน้ำเงิน อยู่ระหว่างตึก 4 กับตึก 7", "#1d4ed8"),
+    ("field", "สนามกีฬา", "sport", 100.6150355, 13.7693944, 80.0,
+     "สนามฟุตบอลพร้อมลู่วิ่ง อยู่ด้านเหนือของอาคารเฉลิมพระเกียรติ", "#22c55e"),
+    ("stand", "อัฒจันทร์", "landmark", 100.6154748, 13.7693850, 20.0,
+     "อัฒจันทร์ริมสนามกีฬาด้านตะวันออก", "#a3a3a3"),
+    ("house", "เรือนไทย", "landmark", 100.6152286, 13.7705345, 22.0,
+     "เรือนไทยไม้สัก อาคารอนุรักษ์ด้านเหนือสุดของโรงเรียน", "#92400e"),
 ]
 
-SOURCE = "สร้างจาก tools/generate_data.py ตามโครงสร้างอาคารที่กำหนด"
+# ------------------------------------------------------------------
+# ลาน / ทางเดินกลางแจ้ง (ชั้น 1) — พิกัดเมตร เป็นค่าประมาณจากผังดาวเทียม
+# ------------------------------------------------------------------
+PLAZAS = [
+    ("pz-house",   "ลานหน้าเรือนไทย",                  -4.0,  332.0),
+    ("pz-field-n", "ลานสนามกีฬาด้านเหนือ",             -22.0,  282.0),
+    ("pz-field-s", "ลานสนามกีฬาด้านใต้",               -22.0,  182.0),
+    ("pz-chalerm", "ลานหน้าอาคารเฉลิมพระเกียรติ",      -24.0,  134.0),
+    ("pz-bodin",   "ลานหน้าอาคารบดินทรพิพัฒน์",        -22.0,   96.0),
+    ("pz-b5n",     "ลานหน้าตึก 5 ด้านเหนือ",            50.0,   92.0),
+    ("pz-b1",      "ลานหน้าตึก 1",                     -70.0,   48.0),
+    ("pz-b2",      "ลานหน้าตึก 2",                     -63.0,   12.0),
+    ("pz-b3",      "ลานหน้าตึก 3",                     -56.0,  -23.0),
+    ("pz-b4",      "ลานหน้าตึก 4",                     -50.0,  -60.0),
+    ("pz-c12",     "ลานกลางระหว่างตึก 1 กับตึก 2",       28.0,   45.0),
+    ("pz-c23",     "ลานกลางระหว่างตึก 2 กับตึก 3",       32.0,    9.0),
+    ("pz-c34",     "ลานกลางระหว่างตึก 3 กับตึก 4",       25.0,  -30.0),
+    ("pz-blue",    "ลานหน้าอาคารหลังคาสีน้ำเงิน",        -2.0,  -70.0),
+    ("pz-sport",   "ลานหน้าอาคารกีฬา",                  44.0,  -76.0),
+    ("pz-b7",      "ลานหน้าตึก 7",                      -8.0, -110.0),
+    ("pz-pool",    "ลานหน้าสระว่ายน้ำ",                 -30.0, -116.0),
+]
+
+# ------------------------------------------------------------------
+# ทางเข้าอาคาร (ชั้น 1) — ยื่นออกจากปลายแนวทางเดินของอาคาร
+#   (id, ชื่อ, อาคาร, ตำแหน่งปลาย 0.0 หรือ 1.0)
+# ------------------------------------------------------------------
+ENTRANCES = [
+    ("ent-chalerm", "chalerm", 0.0),
+    ("ent-b1",      "b1",      0.0),
+    ("ent-b2",      "b2",      0.0),
+    ("ent-b3",      "b3",      0.0),
+    ("ent-b4",      "b4",      0.0),
+    ("ent-b5n",     "b5",      0.0),
+    ("ent-b5s",     "b5",      1.0),
+    ("ent-b7w",     "b7",      0.0),
+    ("ent-b7e",     "b7",      1.0),
+    ("ent-arcade",  "arcade",  1.0),
+]
+
+# ------------------------------------------------------------------
+# เส้นเชื่อมกลางแจ้ง — คู่ของไอดีโหนด ระยะทางคำนวณจากพิกัดจริง
+#   ("jn", อาคาร ก, อาคาร ข, ชั้น) = โหนดทางแยกของสองอาคารที่ชั้นนั้น
+# ------------------------------------------------------------------
+OUTDOOR = [
+    # แกนทางเดินฝั่งตะวันตกหน้าตึก 1-4
+    ("pz-b1", "pz-b2"), ("pz-b2", "pz-b3"), ("pz-b3", "pz-b4"),
+    ("pz-b1", "ent-b1"), ("pz-b2", "ent-b2"), ("pz-b3", "ent-b3"), ("pz-b4", "ent-b4"),
+    # ด้านเหนือ: หอประชุม สนามกีฬา เรือนไทย
+    ("pz-b1", "pz-bodin"),
+    ("pz-bodin", "poi-bodin"), ("pz-bodin", "pz-chalerm"), ("pz-bodin", "pz-b5n"),
+    ("pz-b5n", "ent-b5n"),
+    ("pz-chalerm", "ent-chalerm"), ("pz-chalerm", "pz-field-s"),
+    ("pz-field-s", "poi-field"), ("pz-field-s", "poi-stand"), ("pz-field-s", "pz-field-n"),
+    ("pz-field-n", "poi-field"), ("pz-field-n", "pz-house"),
+    ("pz-house", "poi-house"),
+    # ด้านใต้: อาคารกีฬา สระว่ายน้ำ ตึก 7
+    ("pz-b4", "pz-blue"), ("pz-blue", "poi-blue"), ("pz-blue", "pz-b7"), ("pz-blue", "pz-sport"),
+    ("pz-sport", "poi-sport"), ("pz-sport", "poi-hall"), ("pz-sport", "ent-b5s"),
+    ("pz-sport", "pz-c34"), ("pz-c34", "poi-hall"),
+    ("pz-b7", "ent-b7w"), ("pz-b7", "ent-b7e"), ("pz-b7", "pz-pool"), ("pz-pool", "poi-pool"),
+    # ลานกลางระหว่างตึก เดินลอดช่องเปิดโล่งใต้อาคารถึงกันได้
+    ("pz-c12", "pz-c23"), ("pz-c23", "pz-c34"),
+    ("pz-c12", ("jn", "b1", "link", 1)), ("pz-c12", ("jn", "b2", "link", 1)),
+    ("pz-c12", ("jn", "b1", "b5", 1)),   ("pz-c12", ("jn", "b2", "b5", 1)),
+    ("pz-c23", ("jn", "b2", "link", 1)), ("pz-c23", ("jn", "b3", "link", 1)),
+    ("pz-c23", ("jn", "b2", "b5", 1)),   ("pz-c23", ("jn", "b3", "b5", 1)),
+    ("pz-c34", ("jn", "b3", "link", 1)), ("pz-c34", ("jn", "b4", "link", 1)),
+    # ทางเดินซุ้มโค้งลงไปที่หอประชุม
+    ("ent-arcade", "poi-bodin"),
+]
 
 
 # ------------------------------------------------------------------
-# ตัวช่วยคำนวณพิกัดและไอดี
+# เรขาคณิตของแนวทางเดิน
 # ------------------------------------------------------------------
-def floors_of(b):
-    return list(range(1, BUILDING_BY_ID[b]["floors"] + 1))
+def prepare_wings():
+    """เติมพิกัดเมตร ทิศทาง และความยาวให้อาคารทุกหลัง"""
+    for w in WINGS:
+        a = to_xy(w["line"][0])
+        b = to_xy(w["line"][1])
+        w["_a"] = a
+        w["_b"] = b
+        w["_len"] = math.hypot(b[0] - a[0], b[1] - a[1])
+        w["_dir"] = ((b[0] - a[0]) / w["_len"], (b[1] - a[1]) / w["_len"])
 
 
-def wing_y(b):
-    """พิกัด Y ของแนวทางเดินของอาคาร"""
-    return BUILDING_BY_ID[b]["y"]
+def point_at(w, t):
+    """พิกัดบนแนวทางเดินที่ตำแหน่ง t (0 = ปลาย line[0], 1 = ปลาย line[1])"""
+    a, b = w["_a"], w["_b"]
+    return (a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t)
 
 
-def slot_x(b, slot):
-    """พิกัด X ของช่องที่ slot ในอาคาร (อาคารที่ flip เรียงกลับทิศ)"""
-    info = BUILDING_BY_ID[b]
-    x = slot * SPACING
-    return info["x0"] + (SPAN - x if info["flip"] else x)
+def intersect_t(w1, w2):
+    """ค่า t บนแนวทางเดินทั้งสองที่เส้นตรงสองเส้นตัดกัน"""
+    (x1, y1), (x2, y2) = w1["_a"], w1["_b"]
+    (x3, y3), (x4, y4) = w2["_a"], w2["_b"]
+    r = (x2 - x1, y2 - y1)
+    s = (x4 - x3, y4 - y3)
+    den = r[0] * s[1] - r[1] * s[0]
+    if abs(den) < 1e-9:
+        raise ValueError("แนวทางเดินของ %s กับ %s ขนานกัน" % (w1["id"], w2["id"]))
+    t = ((x3 - x1) * s[1] - (y3 - y1) * s[0]) / den
+    u = ((x3 - x1) * r[1] - (y3 - y1) * r[0]) / den
+    return t, u
 
 
-def room_code(building, floor, room):
-    """รหัสห้องแบบ [อาคาร][ชั้น][เลขห้อง] เช่น 1101 = อาคาร 1 ชั้น 1 ห้อง 01"""
-    return "%d%d%02d" % (building, floor, room)
+def rooms_on(w, floor):
+    """จำนวนห้องของชั้นนั้น"""
+    rooms = w.get("rooms", 0)
+    if isinstance(rooms, dict):
+        return rooms.get(floor, 0)
+    return rooms
 
 
-def room_id(b, f, r):
-    return "b%d-f%d-r%02d" % (b, f, r)
+def room_positions(w, floor, n):
+    """ตำแหน่ง t ของห้องทั้ง n ห้อง กระจายเท่ากันโดยเว้นช่วงที่เปิดโล่ง"""
+    if n <= 0:
+        return []
+    length = w["_len"]
+    blocked = sorted(
+        (v["from_m"] / length, v["to_m"] / length)
+        for v in w.get("voids", []) if floor in v["floors"]
+    )
+    segments, cur = [], 0.0
+    for lo, hi in blocked:
+        if lo > cur:
+            segments.append((cur, lo))
+        cur = max(cur, hi)
+    if cur < 1.0:
+        segments.append((cur, 1.0))
+    total = sum(hi - lo for lo, hi in segments)
+
+    out = []
+    for i in range(n):
+        target = total * (i + 0.5) / n
+        acc = 0.0
+        for lo, hi in segments:
+            if acc + (hi - lo) >= target - 1e-9:
+                out.append(lo + (target - acc))
+                break
+            acc += hi - lo
+    return out
 
 
-def stair_id(b, f, code):
-    return "b%d-f%d-st%s" % (b, f, code)
+def stair_positions(w):
+    return w["stairs"] if "stairs" in w else STAIR_T
 
 
-def stair_thai(code):
-    return next(t for c, t, _s, _w in STAIRS if c == code)
+def stair_label(w, t):
+    """ชื่อเรียกตำแหน่งบันไดจากปลายที่ใกล้ที่สุด"""
+    return w["ends"][0] if t < 0.5 else w["ends"][1]
 
 
-def stair_slot(code):
-    return next(s for c, _t, s, _w in STAIRS if c == code)
+# ------------------------------------------------------------------
+# ไอดีของโหนด
+# ------------------------------------------------------------------
+def room_id(w, f, i):
+    return "%s-f%d-r%02d" % (w["id"], f, i)
 
 
-def endpoint(b, floor, spec):
-    """แปลงปลายทางของทางเชื่อมเป็น (id, x, y, ชื่อที่อ่านออก)"""
-    kind, key = spec
-    if kind == "room":
-        return (room_id(b, floor, key),
-                slot_x(b, ROOM_SLOT[key]),
-                wing_y(b),
-                "ห้อง %s" % room_code(b, floor, key))
-    return (stair_id(b, floor, key),
-            slot_x(b, stair_slot(key)),
-            wing_y(b),
-            "บันได %d%s" % (b, stair_thai(key)))
+def room_code(w, f, i):
+    return "%s%d%02d" % (w["code"], f, i) if w["code"] else "%s-%d-%02d" % (w["id"], f, i)
 
 
-def bridge_id(a, b, floor):
-    return "br-b%db%d-f%d" % (a, b, floor)
+def stair_id(w, f, k):
+    return "%s-f%d-st%s" % (w["id"], f, "ABCDEF"[k])
 
 
+def junction_id(a, b, f):
+    return "jn-%s-%s-f%d" % (a, b, f)
+
+
+def place_id(key):
+    return "poi-%s" % key
+
+
+def extra_id(w, spec):
+    return "%s-f%d-%s" % (w["id"], spec["floor"], spec["suffix"])
+
+
+# ------------------------------------------------------------------
+# ตัวช่วยสร้างโหนด / เส้นเชื่อม
+# ------------------------------------------------------------------
 def node(**kw):
-    """โหนดหนึ่งตัวพร้อมฟิลด์มาตรฐานครบทุกช่อง"""
     base = {
         "id": "", "name": "", "type": "", "building": None, "floor": 0,
         "x": 0.0, "y": 0.0, "description": "", "photo": "",
@@ -189,144 +438,294 @@ def node(**kw):
 
 
 def edge(a, b, distance, etype, time=None, bidirectional=True):
+    distance = max(MIN_EDGE, float(distance))
+    speed = OUTDOOR_SPEED if etype == "outdoor" else WALK_SPEED
     return {
         "from": a,
         "to": b,
-        "distance": round(float(distance), 2),
-        "time": int(round(time if time is not None else distance / WALK_SPEED)),
+        "distance": round(distance, 2),
+        "time": max(1, int(round(time if time is not None else distance / speed))),
         "type": etype,
         "bidirectional": bidirectional,
     }
 
 
 # ------------------------------------------------------------------
-# สร้างโหนด
+# สร้างทางแยกระหว่างอาคาร
 # ------------------------------------------------------------------
-def build_nodes():
+def build_junctions():
+    """คืน dict (a, b, floor) -> {'id','t_a','t_b','x','y'}"""
+    result = {}
+    for a, b in JUNCTIONS:
+        wa, wb = WING_BY_ID[a], WING_BY_ID[b]
+        ta, tb = intersect_t(wa, wb)
+        ta = min(max(ta, 0.0), 1.0)
+        tb = min(max(tb, 0.0), 1.0)
+        x, y = point_at(wa, ta)
+        for f in sorted(set(wa["floors"]) & set(wb["floors"])):
+            result[(a, b, f)] = {
+                "id": junction_id(a, b, f), "t_a": ta, "t_b": tb, "x": x, "y": y,
+            }
+    return result
+
+
+def junctions_of(junctions, wing_id, floor):
+    """รายการ (t, id, คู่อาคาร) ของทางแยกบนแนวทางเดินอาคารนี้ที่ชั้นนั้น"""
+    out = []
+    for (a, b, f), j in junctions.items():
+        if f != floor:
+            continue
+        if a == wing_id:
+            out.append((j["t_a"], j["id"], b))
+        elif b == wing_id:
+            out.append((j["t_b"], j["id"], a))
+    return out
+
+
+# ------------------------------------------------------------------
+# สร้างโหนดและเส้นเชื่อมทั้งหมด
+# ------------------------------------------------------------------
+def build_graph():
+    prepare_wings()
+    junctions = build_junctions()
+
     nodes = []
-    for info in BUILDINGS:
-        b = info["id"]
-        y = wing_y(b)
-        floors = floors_of(b)
-        for f in floors:
-            # --- บันไดสามตำแหน่งของชั้นนี้ ---
-            for code, thai, slot, where in STAIRS:
-                nodes.append(node(
-                    id=stair_id(b, f, code),
-                    name="บันได %d%s ชั้น %d" % (b, thai, f),
+    edges = []
+    by_id = {}
+
+    def add(n):
+        nodes.append(n)
+        by_id[n["id"]] = n
+        return n
+
+    # --- โหนดทางแยกระหว่างอาคาร (ใช้ร่วมกันทั้งสองแนว) ---
+    for (a, b, f), j in sorted(junctions.items(), key=lambda kv: kv[0]):
+        wa, wb = WING_BY_ID[a], WING_BY_ID[b]
+        add(node(
+            id=j["id"],
+            name="ทางแยก%s × %s ชั้น %d" % (wa["name"], wb["name"], f),
+            type="junction",
+            building=a,
+            floor=f,
+            x=j["x"], y=j["y"],
+            description="จุดที่แนวทางเดิน%sบรรจบกับ%s ที่ชั้น %d" % (wa["name"], wb["name"], f),
+            aliases=["ทางแยก%s%s" % (wa["short"] or a, wb["short"] or b)],
+        ))
+
+    # --- โหนดในแต่ละอาคาร แต่ละชั้น แล้วร้อยเป็นสายทางเดิน ---
+    for w in WINGS:
+        for f in w["floors"]:
+            chain = []
+
+            # บันไดด้านข้างอาคาร
+            for k, t in enumerate(stair_positions(w)):
+                x, y = point_at(w, t)
+                where = stair_label(w, t)
+                sid = stair_id(w, f, k)
+                add(node(
+                    id=sid,
+                    name="บันได%s ฝั่ง%s ชั้น %d" % (w["name"], where, f),
                     type="stairs",
-                    building="b%d" % b,
+                    building=w["id"],
                     floor=f,
-                    x=slot_x(b, slot),
-                    y=y,
-                    description="บันไดอาคาร %d ตำแหน่ง%s เชื่อมชั้น %d ถึงชั้น %d"
-                                % (b, where, floors[0], floors[-1]),
-                    aliases=["บันได%d%s" % (b, thai), "st%s%d" % (code, b)],
+                    x=x, y=y,
+                    description="บันไดด้านข้าง%s ฝั่ง%s เชื่อมชั้น %d ถึงชั้น %d"
+                                % (w["name"], where, w["floors"][0], w["floors"][-1]),
+                    aliases=["บันได%s%s" % (w["short"] or w["id"], where),
+                             "st-%s-%s" % (w["id"], "ABCDEF"[k])],
                 ))
-            # --- ห้องเรียน 10 ห้องของชั้นนี้ ---
-            for r in range(1, ROOMS + 1):
-                code = room_code(b, f, r)
-                nodes.append(node(
-                    id=room_id(b, f, r),
+                chain.append((t, sid))
+
+            # ห้องเรียน (จำนวนต่อชั้นเป็นค่าตั้งต้น ปรับได้ที่ตาราง WINGS)
+            count = rooms_on(w, f)
+            for i, t in enumerate(room_positions(w, f, count), start=1):
+                x, y = point_at(w, t)
+                rid = room_id(w, f, i)
+                code = room_code(w, f, i)
+                add(node(
+                    id=rid,
                     name="ห้อง %s" % code,
                     type="classroom",
-                    building="b%d" % b,
+                    building=w["id"],
                     floor=f,
-                    x=slot_x(b, ROOM_SLOT[r]),
-                    y=y,
-                    description="อาคาร %d ชั้น %d ห้องที่ %d จาก %d" % (b, f, r, ROOMS),
-                    aliases=[code, "%d/%d/%d" % (b, f, r)],
+                    x=x, y=y,
+                    description="%s ชั้น %d ห้องที่ %d จาก %d (จำนวนห้องเป็นค่าตั้งต้น รอผังห้องจริง)"
+                                % (w["name"], f, i, count),
+                    aliases=[code, "%s/%d/%d" % (w["short"] or w["id"], f, i)],
                 ))
+                chain.append((t, rid))
 
-    # --- โหนดทางเชื่อมระหว่างอาคาร ---
-    for a, b, floor, spec_a, spec_b in BRIDGES:
-        _id_a, x_a, y_a, name_a = endpoint(a, floor, spec_a)
-        _id_b, x_b, y_b, name_b = endpoint(b, floor, spec_b)
-        nodes.append(node(
-            id=bridge_id(a, b, floor),
-            name="ทางเชื่อมอาคาร %d-%d (ชั้น %d)" % (a, b, floor),
-            type="bridge",
-            building=None,
-            floor=floor,
-            x=(x_a + x_b) / 2,
-            y=(y_a + y_b) / 2,
-            description="ทางเดินเชื่อมชั้น %d ระหว่าง%s อาคาร %d กับ%s อาคาร %d"
-                        % (floor, name_a, a, name_b, b),
-            aliases=["ทางเชื่อม%d%d" % (a, b), "สะพาน%d-%d" % (a, b)],
+            # ห้องเฉพาะที่ระบุไว้เอง เช่น หอสมุด
+            for spec in w.get("extras", []):
+                if spec["floor"] != f:
+                    continue
+                t = spec["t"]
+                x, y = point_at(w, t)
+                eid = extra_id(w, spec)
+                add(node(
+                    id=eid,
+                    name=spec["name"],
+                    type=spec["type"],
+                    building=w["id"],
+                    floor=f,
+                    x=x, y=y,
+                    description=spec.get("desc", "%s ชั้น %d" % (w["name"], f)),
+                    aliases=spec.get("aliases", []),
+                ))
+                chain.append((t, eid))
+
+            # ทางแยกไปอาคารอื่น
+            for t, jid, _other in junctions_of(junctions, w["id"], f):
+                chain.append((t, jid))
+
+            # ร้อยสายทางเดินตามตำแหน่งจริง
+            chain.sort(key=lambda item: item[0])
+            ctype = w.get("corridorType", "corridor")
+            for (t1, id1), (t2, id2) in zip(chain, chain[1:]):
+                edges.append(edge(id1, id2, abs(t2 - t1) * w["_len"], ctype))
+
+        # --- บันได: เชื่อมชั้นต่อชั้น แยกทิศขึ้น/ลง เพราะใช้เวลาไม่เท่ากัน ---
+        for k, _t in enumerate(stair_positions(w)):
+            floors = w["floors"]
+            for f1, f2 in zip(floors, floors[1:]):
+                low, high = stair_id(w, f1, k), stair_id(w, f2, k)
+                steps = f2 - f1
+                edges.append(edge(low, high, STAIR_DISTANCE * steps, "stairs_up",
+                                  time=STAIR_TIME_UP * steps, bidirectional=False))
+                edges.append(edge(high, low, STAIR_DISTANCE * steps, "stairs_down",
+                                  time=STAIR_TIME_DOWN * steps, bidirectional=False))
+
+    # --- สถานที่อื่นที่เป็นโหนดเดียว ---
+    for key, name, ntype, lon, lat, _size, desc, _color in PLACES:
+        x, y = to_xy([lon, lat])
+        add(node(
+            id=place_id(key),
+            name=name,
+            type=ntype,
+            building=key,
+            floor=1,
+            x=x, y=y,
+            description=desc,
+            aliases=[name.replace("อาคาร", "").strip()],
         ))
-    return nodes
+
+    # --- ลาน / ทางเดินกลางแจ้ง ---
+    for pid, name, x, y in PLAZAS:
+        add(node(
+            id=pid,
+            name=name,
+            type="plaza",
+            building=None,
+            floor=1,
+            x=x, y=y,
+            description="ลานและทางเดินกลางแจ้งที่ระดับพื้นดิน (ตำแหน่งประมาณจากภาพดาวเทียม)",
+            aliases=[name.replace("ลาน", "").strip()],
+        ))
+
+    # --- ทางเข้าอาคาร: ยื่นออกจากปลายแนวทางเดิน แล้วเชื่อมเข้าบันไดปลายนั้น ---
+    for eid, wing_id, t in ENTRANCES:
+        w = WING_BY_ID[wing_id]
+        sign = -1.0 if t < 0.5 else 1.0
+        bx, by = point_at(w, t)
+        x = bx + w["_dir"][0] * ENTRANCE_OFFSET * sign
+        y = by + w["_dir"][1] * ENTRANCE_OFFSET * sign
+        where = stair_label(w, t)
+        add(node(
+            id=eid,
+            name="ทางเข้า%s ฝั่ง%s" % (w["name"], where),
+            type="entrance",
+            building=wing_id,
+            floor=1,
+            x=x, y=y,
+            description="ทางเข้า%s ด้าน%s ที่ระดับพื้นดิน" % (w["name"], where),
+            aliases=["ทางเข้า%s" % (w["short"] or wing_id)],
+        ))
+        # เชื่อมกับโหนดที่ปลายแนวทางเดินชั้น 1 (บันไดปลายนั้น ถ้าไม่มีใช้ทางแยกที่ใกล้สุด)
+        inner = None
+        stairs = stair_positions(w)
+        for k, st in enumerate(stairs):
+            if abs(st - t) < 1e-6 and 1 in w["floors"]:
+                inner = stair_id(w, 1, k)
+        if inner is None:
+            cands = junctions_of(junctions, wing_id, 1)
+            if cands:
+                inner = min(cands, key=lambda c: abs(c[0] - t))[1]
+        if inner is None:
+            raise ValueError("ทางเข้า %s ไม่มีโหนดในอาคารให้เชื่อม" % eid)
+        edges.append(edge(eid, inner, ENTRANCE_OFFSET, "entrance"))
+
+    # --- เส้นเชื่อมกลางแจ้ง ---
+    def resolve(ref):
+        if isinstance(ref, tuple):
+            _kind, a, b, f = ref
+            return junctions[(a, b, f)]["id"]
+        return ref
+
+    for ref_a, ref_b in OUTDOOR:
+        id_a, id_b = resolve(ref_a), resolve(ref_b)
+        na, nb = by_id[id_a], by_id[id_b]
+        dist = math.hypot(nb["x"] - na["x"], nb["y"] - na["y"])
+        edges.append(edge(id_a, id_b, dist, "outdoor"))
+
+    return nodes, edges
 
 
 # ------------------------------------------------------------------
-# สร้างเส้นเชื่อม
+# ข้อมูลอาคาร (ชื่อ/สี/จำนวนชั้น/กรอบอาคารในภาพ 3 มิติ)
 # ------------------------------------------------------------------
-def chain_ids(b, f):
-    """ไอดีของโหนดบนทางเดินชั้น f ของอาคาร b เรียงตามตำแหน่งจริง"""
-    ids = [None] * (SLOTS + 1)
-    for code, _thai, slot, _where in STAIRS:
-        ids[slot] = stair_id(b, f, code)
-    for r in range(1, ROOMS + 1):
-        ids[ROOM_SLOT[r]] = room_id(b, f, r)
-    return ids
+def wing_rect(w):
+    """กรอบสี่เหลี่ยมครอบอาคาร คิดจากแนวทางเดินและความกว้าง"""
+    half = w["width"] / 2.0
+    nx, ny = -w["_dir"][1], w["_dir"][0]
+    corners = [
+        (w["_a"][0] + nx * half, w["_a"][1] + ny * half),
+        (w["_a"][0] - nx * half, w["_a"][1] - ny * half),
+        (w["_b"][0] + nx * half, w["_b"][1] + ny * half),
+        (w["_b"][0] - nx * half, w["_b"][1] - ny * half),
+    ]
+    xs = [c[0] for c in corners]
+    ys = [c[1] for c in corners]
+    return ([round(min(xs), 2), round(min(ys), 2), round(max(xs), 2), round(max(ys), 2)],
+            [[round(c[0], 2), round(c[1], 2)] for c in (corners[0], corners[2], corners[3], corners[1])])
 
 
-def build_edges():
-    edges = []
-
-    # --- ทางเดินในแต่ละชั้น: บันได ก - ห้อง 01..05 - บันได ข - ห้อง 06..10 - บันได ค ---
-    for info in BUILDINGS:
-        b = info["id"]
-        for f in floors_of(b):
-            ids = chain_ids(b, f)
-            for i in range(len(ids) - 1):
-                edges.append(edge(ids[i], ids[i + 1], SPACING, "corridor"))
-
-    # --- บันได: เชื่อมชั้นต่อชั้น แยกทิศขึ้น/ลง เพราะใช้เวลาต่างกัน ---
-    for info in BUILDINGS:
-        b = info["id"]
-        floors = floors_of(b)
-        for code, _thai, _slot, _where in STAIRS:
-            for f in floors[:-1]:
-                low = stair_id(b, f, code)
-                high = stair_id(b, f + 1, code)
-                edges.append(edge(low, high, STAIR_DISTANCE, "stairs_up",
-                                  time=STAIR_TIME_UP, bidirectional=False))
-                edges.append(edge(high, low, STAIR_DISTANCE, "stairs_down",
-                                  time=STAIR_TIME_DOWN, bidirectional=False))
-
-    # --- ทางเชื่อมระหว่างอาคาร ---
-    for a, b, floor, spec_a, spec_b in BRIDGES:
-        node_id = bridge_id(a, b, floor)
-        id_a, x_a, y_a, _na = endpoint(a, floor, spec_a)
-        id_b, x_b, y_b, _nb = endpoint(b, floor, spec_b)
-        half = math.hypot(x_b - x_a, y_b - y_a) / 2
-        edges.append(edge(id_a, node_id, half, "bridge"))
-        edges.append(edge(node_id, id_b, half, "bridge"))
-
-    return edges
-
-
-# ------------------------------------------------------------------
-# ข้อมูลอาคาร (ใช้เป็นชื่อ/สีของกลุ่มโหนดในภาพ 3 มิติ)
-# ------------------------------------------------------------------
 def build_buildings():
     out = []
-    for info in BUILDINGS:
-        b = info["id"]
-        y = wing_y(b)
-        x0 = info["x0"]
+    for w in WINGS:
+        rect, footprint = wing_rect(w)
+        axis = "x" if abs(w["_dir"][0]) >= abs(w["_dir"][1]) else "y"
         out.append({
-            "id": "b%d" % b,
-            "name": "อาคาร %d" % b,
-            "shortName": "อ.%d" % b,
-            "code": str(b),
-            "floors": floors_of(b),
-            "color": info["color"],
-            "rect": [x0 - 2.0, y - 3.0, x0 + SPAN + 2.0, y + 3.0],
+            "id": w["id"],
+            "name": w["name"],
+            "shortName": w["short"] or w["name"],
+            "code": w["code"],
+            "kind": w["kind"],
+            "floors": list(w["floors"]),
+            "color": w["color"],
+            "rect": rect,
+            "footprint": footprint,
+            "axis": axis,
+            "zone": w["zone"],
+            "description": "%s · %d ชั้น · ยาวราว %d เมตร · %s"
+                           % (w["kind"], len(w["floors"]), round(w["_len"]), w["desc"]),
+            "photo": "",
+        })
+    for key, name, _ntype, lon, lat, size, desc, color in PLACES:
+        x, y = to_xy([lon, lat])
+        half = size / 2.0
+        out.append({
+            "id": key,
+            "name": name,
+            "shortName": name,
+            "code": "",
+            "kind": "สถานที่",
+            "floors": [1],
+            "color": color,
+            "rect": [round(x - half, 2), round(y - half, 2), round(x + half, 2), round(y + half, 2)],
+            "footprint": [],
             "axis": "x",
-            "zone": info["zone"],
-            "description": "อาคาร %d (โซน%s) - %d ชั้น ชั้นละ %d ห้อง บันได %d ตำแหน่งต่อชั้น"
-                           % (b, info["zone"], info["floors"], ROOMS, len(STAIRS)),
+            "zone": "สถานที่อื่น",
+            "description": desc,
             "photo": "",
         })
     return out
@@ -344,41 +743,48 @@ def main():
     if not os.path.isdir(DATA):
         os.makedirs(DATA)
 
-    nodes = build_nodes()
-    edges = build_edges()
+    nodes, edges = build_graph()
     buildings = build_buildings()
 
-    max_x = max(b["x0"] for b in BUILDINGS) + SPAN
-    max_y = max(b["y"] for b in BUILDINGS)
-    floor_list = sorted({f for b in BUILDINGS for f in floors_of(b["id"])})
+    xs = [n["x"] for n in nodes]
+    ys = [n["y"] for n in nodes]
+    floor_list = sorted({n["floor"] for n in nodes if n["floor"]})
 
     write("buildings.json", {
         "meta": {
-            "school": "ผังจำลองอาคารเรียน 7 อาคาร",
+            "school": "โรงเรียนบดินทรเดชา (สิงห์ สิงหเสนี)",
             "unit": "meter",
-            "note": "ผังจำลองตามโครงสร้างที่กำหนด: 7 อาคาร แบ่งเป็นสองโซน "
-                    "อาคารละ 4-5 ชั้น ชั้นละ 10 ห้อง บันได 3 ตำแหน่งต่อชั้น "
-                    "และทางเชื่อมระหว่างอาคาร %d จุด" % len(BRIDGES),
+            "note": "ผังเส้นทางถอดจากผัง 3 มิติ https://thtpk.github.io/3D_Map/ "
+                    "อาคารเรียน %d หลัง ทางเดินเชื่อม %d เส้น และสถานที่อื่น %d แห่ง "
+                    "บันไดอยู่ด้านข้างอาคาร (หัว-ท้ายของแนวทางเดิน) "
+                    "จำนวนห้องต่อชั้นยังเป็นค่าตั้งต้น รอปรับตามผังห้องจริง"
+                    % (sum(1 for w in WINGS if rooms_on(w, w["floors"][0]) or w.get("extras")),
+                       sum(1 for w in WINGS if not w.get("rooms")),
+                       len(PLACES)),
+            "origin": {"lon": LON0, "lat": LAT0},
             "floorHeight": FLOOR_HEIGHT,
             "floors": floor_list,
-            "extent": [-6.0, -6.0, max_x + 6.0, max_y + 6.0],
+            "extent": [round(min(xs) - 10, 1), round(min(ys) - 10, 1),
+                       round(max(xs) + 10, 1), round(max(ys) + 10, 1)],
+            "source": SOURCE,
         },
         "buildings": buildings,
         "areas": [],
     })
-    write("nodes.json", {"version": "2.0", "nodes": nodes})
-    write("edges.json", {"version": "2.0", "edges": edges})
+    write("nodes.json", {"version": "3.0", "nodes": nodes})
+    write("edges.json", {"version": "3.0", "edges": edges})
 
-    total_floors = sum(b["floors"] for b in BUILDINGS)
-    print("รวม %d โหนด (%d ห้อง + %d บันได + %d ทางเชื่อม) และ %d เส้นเชื่อม" % (
-        len(nodes),
-        total_floors * ROOMS,
-        total_floors * len(STAIRS),
-        len(BRIDGES),
-        len(edges),
-    ))
-    print("อาคาร %d หลัง รวม %d ชั้น (สูงสุด %d ชั้น)" % (
-        len(BUILDINGS), total_floors, max(b["floors"] for b in BUILDINGS)))
+    counts = {}
+    for n in nodes:
+        counts[n["type"]] = counts.get(n["type"], 0) + 1
+    print("รวม %d โหนด และ %d เส้นเชื่อม" % (len(nodes), len(edges)))
+    for t, c in sorted(counts.items(), key=lambda kv: -kv[1]):
+        print("    %-12s %d" % (t, c))
+    print("อาคารในไฟล์ buildings.json: %d รายการ" % len(buildings))
+    for w in WINGS:
+        print("    %-9s %-22s %d ชั้น  ยาว %6.1f ม.  ห้อง/ชั้น %s"
+              % (w["id"], w["name"], len(w["floors"]), w["_len"],
+                 ", ".join("ช%d=%d" % (f, rooms_on(w, f)) for f in w["floors"])))
 
 
 if __name__ == "__main__":
