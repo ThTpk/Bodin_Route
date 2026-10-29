@@ -6,6 +6,7 @@ generate_data.py
 โดยใช้รูปทรงอาคารจริงจากผัง 3 มิติ https://github.com/ThTpk/3D_Map
 
     node   tools/extract_3dmap.js     # แปลง buildings.js -> ref_data/3d_map_buildings.json
+    python tools/extract_rooms.py     # อ่านตารางเรียน -> ref_data/rooms_from_schedule.json
     python tools/generate_data.py     # สร้างไฟล์ใน data/
 
 ที่มาของสัดส่วน
@@ -33,8 +34,13 @@ generate_data.py
 
 บันไดอยู่ "ด้านข้างอาคาร" คือหัวและท้ายของแนวทางเดิน (ค่า STAIR_T)
 
-** จำนวนห้องต่อชั้นในตาราง WINGS เป็นค่าตั้งต้น (ประมาณจากความยาวอาคาร) **
-** ยังไม่ใช่ผังห้องจริง ให้แก้คีย์ "rooms" ของอาคารนั้นแล้วรันสคริปต์นี้ใหม่  **
+ห้องเรียนของแต่ละชั้นมาจากตารางเรียน ม.1-ม.6 ใน ref_data/ (ไฟล์ m*.pdf)
+  รหัสห้องสี่หลักในตารางเรียนคือ อาคาร + ชั้น + ลำดับห้องตามแนวทางเดิน เช่น 5401
+  คือ ตึก 5 ชั้น 4 ห้องที่ 1  สกัดด้วย tools/extract_rooms.py แล้วนำเลขห้องจริง
+  มาใส่คีย์ "rooms" ของอาคารในตาราง WINGS (ชั้น -> รายการเลขห้อง)
+
+  คีย์ "roomSlots" คือจำนวนช่องห้องตลอดแนวทางเดิน ใช้วางห้องให้ตรงตำแหน่งจริง
+  ชั้นที่ตารางเรียนไม่ได้ใช้ห้องนั้น ช่องจะถูกเว้นว่างไว้ ไม่ถูกเลื่อนมาชิดกัน
 ------------------------------------------------------------------
 รันสคริปต์นี้ใหม่ได้ทุกเมื่อ ไฟล์ใน data/ จะถูกเขียนทับทั้งหมด
 """
@@ -76,16 +82,19 @@ ROOM_SHIFT = 0.24         # แนวห้องเรียน
 
 # ------------------------------------------------------------------
 # ตารางอาคาร
-#   src    : (รหัสอาคารใน 3D_Map, ดัชนีปีก) หรือ (รหัส, [ปีก, ปีก, ...])
-#   rooms  : จำนวนห้องต่อชั้น (ค่าตั้งต้น) ใส่เป็น int หรือ dict ชั้น -> จำนวน
-#   ends   : ชื่อเรียกปลายทั้งสองข้าง ใช้ตั้งชื่อบันได/ทางเข้า และกำหนดทิศของแนวแกน
-#   stairs : ตำแหน่งบันไดตามแนวทางเดิน 0.0 = หัว, 1.0 = ท้าย (ค่าปริยาย STAIR_T)
+#   src       : (รหัสอาคารใน 3D_Map, ดัชนีปีก) หรือ (รหัส, [ปีก, ปีก, ...])
+#   rooms     : ชั้น -> รายการเลขห้องที่ใช้เรียนจริง (จากตารางเรียนใน ref_data/)
+#   roomSlots : จำนวนช่องห้องตลอดแนวทางเดิน (เลขห้องสูงสุดของอาคาร)
+#   ends      : ชื่อเรียกปลายทั้งสองข้าง ใช้ตั้งชื่อบันได/ทางเข้า และกำหนดทิศของแนวแกน
+#   stairs    : ตำแหน่งบันไดตามแนวทางเดิน 0.0 = หัว, 1.0 = ท้าย (ค่าปริยาย STAIR_T)
 # ------------------------------------------------------------------
 WINGS = [
     {
         "id": "chalerm", "src": ("chalerm", 0), "code": "8",
         "short": "อ.เฉลิมฯ", "zone": "โซนเหนือ", "color": "#c026d3",
-        "floors": [1, 2], "rooms": {1: 2, 2: 5},
+        # ตารางเรียน ม.1-ม.6 ไม่มีรหัสห้องขึ้นต้นด้วย 8 อาคารนี้จึงไม่มีห้องเรียนสามัญ
+        # ชั้นล่างเป็นหอสมุด (ใส่ไว้ที่ extras ด้านล่าง)
+        "floors": [1, 2], "rooms": {}, "roomSlots": 0,
         "ends": ("ตะวันตก", "ตะวันออก"),
         "extras": [
             {"suffix": "library", "name": "หอสมุดคุณหญิงนครราชเสนี", "type": "library",
@@ -95,50 +104,63 @@ WINGS = [
     {
         "id": "b1", "src": ("b1", 0), "code": "1",
         "short": "ต.1", "zone": "กลุ่มอาคารเรียน", "color": "#2563eb",
-        "floors": [1, 2, 3, 4], "rooms": {1: 9, 2: 9, 3: 12, 4: 12},
+        "floors": [1, 2, 3, 4], "roomSlots": 7,
+        "rooms": {1: [], 2: [6, 7], 3: [1, 2, 3, 4, 5, 6], 4: [1, 2, 3, 4, 5, 6, 7]},
         "ends": ("ตะวันตก", "ตะวันออก"),
     },
     {
         "id": "b2", "src": ("b2", 0), "code": "2",
         "short": "ต.2", "zone": "กลุ่มอาคารเรียน", "color": "#7c3aed",
-        "floors": [1, 2, 3, 4], "rooms": {1: 9, 2: 9, 3: 12, 4: 12},
+        "floors": [1, 2, 3, 4], "roomSlots": 9,
+        "rooms": {1: [], 2: [2, 3, 4, 5, 6, 7, 8, 9], 3: [1, 2, 3, 4, 5, 6, 7, 8, 9],
+                  4: [4, 5, 7, 8]},
         "ends": ("ตะวันตก", "ตะวันออก"),
     },
     {
         "id": "b3", "src": ("b3", 0), "code": "3",
         "short": "ต.3", "zone": "กลุ่มอาคารเรียน", "color": "#0d9488",
-        "floors": [1, 2, 3, 4], "rooms": {1: 9, 2: 9, 3: 12, 4: 12},
+        "floors": [1, 2, 3, 4], "roomSlots": 8,
+        "rooms": {1: [], 2: [2, 3, 4, 5], 3: [2, 3, 4, 5, 7, 8],
+                  4: [2, 3, 4, 5, 6, 7, 8]},
         "ends": ("ตะวันตก", "ตะวันออก"),
     },
     {
         "id": "b4", "src": ("b4", 0), "code": "4",
         "short": "ต.4", "zone": "กลุ่มอาคารเรียน", "color": "#db2777",
-        "floors": [1, 2, 3, 4], "rooms": 8,
+        "floors": [1, 2, 3, 4], "roomSlots": 10,
+        "rooms": {1: [6, 7, 9, 10], 2: [1, 2, 3, 5, 6, 7, 8, 10],
+                  3: [1, 2, 3, 4, 6], 4: [1, 2, 4, 6]},
         "ends": ("ตะวันตก", "ตะวันออก"),
     },
     {
         "id": "b5", "src": ("b5", 0), "code": "5",
         "short": "ต.5", "zone": "กลุ่มอาคารเรียน (แนวตะวันออก)", "color": "#0ea5e9",
-        "floors": [1, 2, 3, 4], "rooms": 16,
+        "floors": [1, 2, 3, 4], "roomSlots": 18,
+        "rooms": {1: [16],
+                  2: [3, 4, 5, 6, 9, 10, 11, 14, 15, 16, 17, 18],
+                  3: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 14, 15, 16, 17, 18],
+                  4: list(range(1, 19))},
         "ends": ("เหนือ", "ใต้"),
     },
     {
         "id": "link", "src": ("link", [0, 1, 2]), "code": "6",
         "short": "อ.เชื่อม", "zone": "กลุ่มอาคารเรียน (แนวกลาง)", "color": "#16a34a",
-        "floors": [1, 2, 3, 4], "rooms": 10,
+        # ตารางเรียน ม.1-ม.6 ไม่มีรหัสห้องขึ้นต้นด้วย 6 อาคารนี้จึงเป็นทางเชื่อมล้วน
+        "floors": [1, 2, 3, 4], "rooms": {}, "roomSlots": 0,
         "ends": ("เหนือ", "ใต้"),
     },
     {
         "id": "b7", "src": ("b7", 0), "code": "7",
         "short": "ต.7", "zone": "โซนใต้", "color": "#84cc16",
-        "floors": [1, 2, 3, 4], "rooms": 6, "roomMargin": 0.12,
+        "floors": [1, 2, 3, 4], "roomSlots": 8, "roomMargin": 0.12,
+        "rooms": {1: [1, 2, 3, 4, 7, 8], 2: [1, 4, 5, 7], 3: [], 4: []},
         "ends": ("ตะวันตก", "ตะวันออก"),
     },
     {
         "id": "wk1", "src": ("walkway", 0), "code": "",
         "name": "ทางเดินเชื่อม ตึก 1-2", "short": "ทช.1-2",
         "zone": "ทางเดินเชื่อม", "color": "#94a3b8",
-        "floors": [3, 4], "rooms": 0, "stairs": (),
+        "floors": [3, 4], "rooms": {}, "roomSlots": 0, "stairs": (),
         "corridorType": "bridge",
         "ends": ("เหนือ", "ใต้"),
     },
@@ -146,14 +168,14 @@ WINGS = [
         "id": "wk2", "src": ("walkway", 1), "code": "",
         "name": "ทางเดินเชื่อม ตึก 2-3", "short": "ทช.2-3",
         "zone": "ทางเดินเชื่อม", "color": "#94a3b8",
-        "floors": [3, 4], "rooms": 0, "stairs": (),
+        "floors": [3, 4], "rooms": {}, "roomSlots": 0, "stairs": (),
         "corridorType": "bridge",
         "ends": ("เหนือ", "ใต้"),
     },
     {
         "id": "arcade", "src": ("arcade", 0), "code": "",
         "short": "ซุ้มโค้ง", "zone": "ทางเดินเชื่อม", "color": "#64748b",
-        "floors": [1, 2, 3], "rooms": 0, "stairs": (1.0,),
+        "floors": [1, 2, 3], "rooms": {}, "roomSlots": 0, "stairs": (1.0,),
         "corridorType": "bridge",
         "ends": ("ใต้", "เหนือ"),
     },
@@ -342,17 +364,6 @@ def prepare_wings(ref):
         w["_nrm"] = (-w["_dir"][1], w["_dir"][0])
         w["_w"] = width
 
-        # ช่วงที่ชั้นล่างเปิดโล่งไม่มีห้อง (ระยะวัดจากปลาย footprint[0] ของปีกแรก)
-        voids = []
-        for v in parts[0].get("voids", []):
-            lo, hi = v["from"] / length, v["to"] / length
-            if flipped:
-                lo, hi = 1.0 - hi, 1.0 - lo
-            floors = [f for f in w["floors"] if f <= v.get("floors", 0)]
-            if floors:
-                voids.append({"floors": floors, "from": lo, "to": hi})
-        w["_voids"] = voids
-
 
 def point_at(w, t, shift=0.0):
     """พิกัดบนแนวอาคารที่ตำแหน่ง t และเยื้องออกข้างเป็นสัดส่วนของความกว้าง"""
@@ -376,37 +387,23 @@ def intersect_t(w1, w2):
 
 
 def rooms_on(w, floor):
-    rooms = w.get("rooms", 0)
-    return rooms.get(floor, 0) if isinstance(rooms, dict) else rooms
+    """รายการเลขห้องที่ใช้เรียนจริงของชั้นนั้น (เรียงตามแนวทางเดิน)"""
+    return sorted(w.get("rooms", {}).get(floor, []))
 
 
-def room_positions(w, floor, n):
-    """ตำแหน่ง t ของห้องทั้ง n ห้อง กระจายเท่ากันโดยเว้นช่วงที่เปิดโล่ง"""
-    if n <= 0:
+def room_positions(w, numbers):
+    """ตำแหน่ง t ของห้องแต่ละเลข โดยแบ่งแนวทางเดินเป็น roomSlots ช่องเท่า ๆ กัน
+
+    ห้องเลข r อยู่กลางช่องที่ r จึงตรงตำแหน่งเดียวกันทุกชั้น และชั้นที่ไม่ได้ใช้
+    ห้องนั้นจะเว้นช่องว่างไว้ ไม่ดึงห้องที่เหลือมาชิดกัน
+    (ไม่ใช้คีย์ voids ของผัง 3 มิติแล้ว เพราะตารางเรียนระบุห้องจริงของแต่ละชั้นอยู่)
+    """
+    slots = w.get("roomSlots", 0)
+    if not numbers or slots <= 0:
         return []
     margin = w.get("roomMargin", ROOM_MARGIN)
-    blocked = sorted((v["from"], v["to"]) for v in w["_voids"] if floor in v["floors"])
-    segments, cur = [], margin
-    for lo, hi in blocked:
-        if lo > cur:
-            segments.append((cur, lo))
-        cur = max(cur, hi)
-    if cur < 1.0 - margin:
-        segments.append((cur, 1.0 - margin))
-    segments = [(max(lo, margin), min(hi, 1.0 - margin)) for lo, hi in segments]
-    segments = [seg for seg in segments if seg[1] - seg[0] > 1e-6]
-    total = sum(hi - lo for lo, hi in segments)
-
-    out = []
-    for i in range(n):
-        target = total * (i + 0.5) / n
-        acc = 0.0
-        for lo, hi in segments:
-            if acc + (hi - lo) >= target - 1e-9:
-                out.append(lo + (target - acc))
-                break
-            acc += hi - lo
-    return out
+    lo, span = margin, 1.0 - 2 * margin
+    return [lo + span * (r - 0.5) / slots for r in numbers]
 
 
 def stair_positions(w):
@@ -529,8 +526,8 @@ def build_graph(ref):
                 chain.append((t, sid))
 
             # ห้องเรียน: โหนดห้องอยู่ในแนวห้อง ต่อเข้าทางเดินด้วยเส้นเชื่อมสั้น ๆ
-            count = rooms_on(w, f)
-            for i, t in enumerate(room_positions(w, f, count), start=1):
+            numbers = rooms_on(w, f)
+            for i, t in zip(numbers, room_positions(w, numbers)):
                 cx, cy = point_at(w, t, CORRIDOR_SHIFT)
                 rx, ry = point_at(w, t, ROOM_SHIFT)
                 cid, rid = access_id(w, f, i), room_id(w, f, i)
@@ -543,8 +540,8 @@ def build_graph(ref):
                 add(node(
                     id=rid, name="ห้อง %s" % code, type="classroom",
                     building=w["id"], floor=f, x=rx, y=ry,
-                    description="%s ชั้น %d ห้องที่ %d จาก %d (จำนวนห้องเป็นค่าตั้งต้น รอผังห้องจริง)"
-                                % (w["name"], f, i, count),
+                    description="%s ชั้น %d ห้อง %s · ชั้นนี้มี %d ห้องที่ใช้เรียน (จากตารางเรียน ม.1-ม.6)"
+                                % (w["name"], f, code, len(numbers)),
                     aliases=[code, "%s/%d/%d" % (w["short"], f, i)],
                 ))
                 edges.append(edge(cid, rid, stub, "room"))
@@ -660,10 +657,20 @@ def bbox(polys):
     return [round(min(xs), 2), round(min(ys), 2), round(max(xs), 2), round(max(ys), 2)]
 
 
+def rooms_summary(w):
+    """ข้อความสรุปจำนวนห้องต่อชั้น เช่น "ชั้น 2: 8 ห้อง · ชั้น 3: 9 ห้อง" """
+    parts = ["ชั้น %d: %d ห้อง" % (f, len(rooms_on(w, f)))
+             for f in w["floors"] if rooms_on(w, f)]
+    return " · ".join(parts)
+
+
 def build_buildings(ref):
     out = []
     for w in WINGS:
         polys = [p["footprint"] for p in w["_parts"]]
+        per_floor = {str(f): [room_code(w, f, i) for i in rooms_on(w, f)]
+                     for f in w["floors"] if rooms_on(w, f)}
+        summary = rooms_summary(w)
         out.append({
             "id": w["id"],
             "name": w["name"],
@@ -678,8 +685,12 @@ def build_buildings(ref):
             "rect": bbox(polys),
             "axis": "x" if abs(w["_dir"][0]) >= abs(w["_dir"][1]) else "y",
             "zone": w["zone"],
-            "description": "%s · %d ชั้น · ยาว %d ม. กว้าง %.1f ม. · %s"
-                           % (w["kind"], len(w["floors"]), round(w["_len"]), w["_w"], w["_desc"]),
+            "rooms": per_floor,
+            "roomsPerFloor": {f: len(codes) for f, codes in per_floor.items()},
+            "roomSlots": w.get("roomSlots", 0),
+            "description": "%s · %d ชั้น · ยาว %d ม. กว้าง %.1f ม. · %s · %s"
+                           % (w["kind"], len(w["floors"]), round(w["_len"]), w["_w"],
+                              summary or "ไม่มีห้องเรียนในตารางเรียน ม.1-ม.6", w["_desc"]),
             "photo": "",
             "source": w["_src"].get("source", ""),
         })
@@ -699,6 +710,9 @@ def build_buildings(ref):
             "shortName": src["name"],
             "code": "",
             "kind": src.get("kind", "สถานที่"),
+            "rooms": {},
+            "roomsPerFloor": {},
+            "roomSlots": 0,
             "floors": [1],
             "modelFloors": floors,
             "height": round(src.get("height") or 0.4, 2),
@@ -741,7 +755,10 @@ def main():
             "unit": "meter",
             "note": "รูปทรงและสัดส่วนอาคารจากผัง 3 มิติ https://github.com/ThTpk/3D_Map "
                     "โหนดห้องเรียนวางอยู่ในแนวห้องภายในอาคาร ทางเดินอยู่อีกฝั่งของความกว้าง "
-                    "บันไดอยู่ด้านข้างอาคาร จำนวนห้องต่อชั้นยังเป็นค่าตั้งต้น รอปรับตามผังห้องจริง",
+                    "บันไดอยู่ด้านข้างอาคาร จำนวนห้องและเลขห้องของแต่ละชั้นมาจากตารางเรียน "
+                    "ม.1-ม.6 ภาคเรียนที่ 2/2569 ใน ref_data/ (ดูคีย์ rooms ของแต่ละอาคาร) "
+                    "นับเฉพาะห้องที่มีคาบเรียนในตารางเรียน ห้องพักครู ห้องพัสดุ และห้องอื่น "
+                    "ที่ไม่มีคาบเรียนจะไม่อยู่ในรายการนี้",
             "origin": ref["origin"],
             "floorHeight": ref["floorHeight"],
             "floors": floor_list,
@@ -765,7 +782,7 @@ def main():
     for w in WINGS:
         print("    %-9s %-22s %d ชั้น  ยาว %6.1f ม.  กว้าง %4.1f ม.  สูง %5.1f ม.  ห้อง/ชั้น %s"
               % (w["id"], w["name"], len(w["floors"]), w["_len"], w["_w"], w["_height"],
-                 ", ".join("ช%d=%d" % (f, rooms_on(w, f)) for f in w["floors"])))
+                 ", ".join("ช%d=%d" % (f, len(rooms_on(w, f))) for f in w["floors"])))
 
 
 if __name__ == "__main__":
