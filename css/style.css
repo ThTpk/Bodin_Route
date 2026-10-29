@@ -701,6 +701,7 @@ code {
   padding: 4px 4px 2px;
 }
 .hud-range input { width: 100%; accent-color: var(--navy-600); }
+.hud-range output { color: var(--text); font-variant-numeric: tabular-nums; }
 
 /* ---------------------------- สัญลักษณ์ ---------------------------- */
 .legend {

@@ -141,10 +141,15 @@
       </div>
       <div class="hud-card hud-view">
         <button type="button" id="btn-spin" class="hud-toggle" aria-pressed="false">↻ หมุนอัตโนมัติ</button>
-        <button type="button" id="btn-model" class="hud-toggle is-on" aria-pressed="true" title="โมเดลอาคารจริงจากผัง 3 มิติ โปร่งแสง 20% เส้นทางวิ่งอยู่ภายใน">🏢 โมเดลอาคาร</button>
+        <button type="button" id="btn-model" class="hud-toggle is-on" aria-pressed="true" title="โมเดลอาคารจริงจากผัง 3 มิติ เส้นทางวิ่งอยู่ภายใน">🏢 โมเดลอาคาร</button>
         <button type="button" id="btn-grid" class="hud-toggle is-on" aria-pressed="true">▦ ระนาบชั้น</button>
         <button type="button" id="btn-labels" class="hud-toggle is-on" aria-pressed="true">🏷 ป้ายชื่อ</button>
         <button type="button" id="btn-reset" class="hud-toggle">⟲ มุมมองเริ่มต้น</button>
+        <label class="hud-range">
+          <span>ความทึบของโมเดลอาคาร <output id="building-alpha-out" for="building-alpha">20%</output></span>
+          <input type="range" id="building-alpha" min="0" max="50" step="1" value="20"
+                 title="0% = ใสจนมองไม่เห็นตัวอาคาร · 20% = ค่าเริ่มต้น · 50% = ทึบที่สุด บังเส้นทางมากขึ้น">
+        </label>
         <label class="hud-range">
           <span>ระยะห่างระหว่างชั้น (3.6 = สัดส่วนจริง)</span>
           <input type="range" id="floor-gap" min="3.6" max="30" step="0.2" value="3.6"
@@ -240,6 +245,10 @@
     ค่าเริ่มต้นของระยะระหว่างชั้นคือ 3.6 เมตรเท่าความสูงชั้นจริง ภาพจึงมีสัดส่วนตรงกับของจริง
     ถ้าเส้นทางข้ามหลายชั้นแล้วดูยาก ให้เลื่อนแถบ "ระยะห่างระหว่างชั้น" ไปทางขวาเพื่อดึงชั้นให้ห่างกัน
     หรือกดเลือกชั้นที่ต้องการดู ทั้งสองอย่างไม่มีผลต่อการคำนวณเส้นทาง
+  </p>
+  <p class="hint">
+    ถ้าตัวอาคารบังเส้นทาง ให้เลื่อนแถบ "ความทึบของโมเดลอาคาร" ลงไปทาง 0%
+    (0% = ไม่เห็นตัวอาคารเลย เหลือแต่กราฟ · ค่าเริ่มต้น 20% · มากสุด 50%)
   </p>
 
   <h3>อัลกอริทึมที่ใช้</h3>

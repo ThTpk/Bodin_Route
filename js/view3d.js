@@ -76,8 +76,10 @@ const THEMES = {
 const ROUTE_COLOR = '#f97316';
 const SELECT_COLOR = '#facc15';
 
-/* ความทึบของทุกหน้าในโมเดลอาคาร = โปร่งแสง 20% มองทะลุเห็นเส้นทางข้างใน */
+/* ความทึบของทุกหน้าในโมเดลอาคาร = โปร่งแสง 20% มองทะลุเห็นเส้นทางข้างใน
+ * ปรับได้ด้วย setBuildingAlpha() จากแถบเลื่อนบนภาพ ช่วง 0 ถึง BUILDING_ALPHA_MAX */
 const BUILDING_ALPHA = 0.20;
+const BUILDING_ALPHA_MAX = 0.50;
 
 const TAU = Math.PI * 2;
 const clamp = (v, lo, hi) => (v < lo ? lo : (v > hi ? hi : v));
@@ -222,6 +224,7 @@ class Graph3DView {
     this.showEdges = true;        // false = แสดงเฉพาะเส้นทางที่ค้นหา
     this.showGrid = true;
     this.showBuildings = true;    // โมเดลอาคารโปร่งแสง เส้นทางวิ่งอยู่ข้างใน
+    this.buildingAlpha = BUILDING_ALPHA;
     this.showLabels = true;
     this.autoRotate = false;
 
@@ -533,6 +536,12 @@ class Graph3DView {
 
   setShowBuildings(on) { this.showBuildings = !!on; this.invalidate(); }
 
+  /** ความทึบของโมเดลอาคาร 0 = ใสจนมองไม่เห็น ถึง BUILDING_ALPHA_MAX */
+  setBuildingAlpha(alpha) {
+    this.buildingAlpha = clamp(Number(alpha) || 0, 0, BUILDING_ALPHA_MAX);
+    this.invalidate();
+  }
+
   setShowLabels(on) { this.showLabels = !!on; this.invalidate(); }
 
   resetView() {
@@ -778,7 +787,7 @@ class Graph3DView {
   /* =============================================================
    * โมเดลอาคารโปร่งแสง
    * รูปทรง สี และทรงหลังคามาจาก buildings.js ของ https://github.com/ThTpk/3D_Map
-   * ผ่าน data/buildings.json คีย์ model ทุกหน้าวาดด้วยความทึบ BUILDING_ALPHA
+   * ผ่าน data/buildings.json คีย์ model ทุกหน้าวาดด้วยความทึบ this.buildingAlpha
    * ============================================================= */
 
   /**
@@ -911,10 +920,10 @@ class Graph3DView {
     ctx.save();
     ctx.lineJoin = 'round';
     faces.forEach((f) => {
-      // สีผนัง/หลังคาจริงจากผัง 3 มิติ ทุกหน้าโปร่งแสงเท่ากันที่ BUILDING_ALPHA
+      // สีผนัง/หลังคาจริงจากผัง 3 มิติ ทุกหน้าโปร่งแสงเท่ากันตามค่าที่ตั้งไว้
       const color = f.kind === 'roof' ? f.shape.roofColor : f.shape.wallColor;
       const edge = f.shape.roofColor;
-      const alpha = f.active ? BUILDING_ALPHA : BUILDING_ALPHA * 0.3;
+      const alpha = f.active ? this.buildingAlpha : this.buildingAlpha * 0.3;
 
       ctx.beginPath();
       f.pts.forEach((q, i) => (i ? ctx.lineTo(q.sx, q.sy) : ctx.moveTo(q.sx, q.sy)));
@@ -922,7 +931,8 @@ class Graph3DView {
       ctx.fillStyle = rgba(color, alpha);
       ctx.fill();
       // เส้นขอบใช้สีหลังคาซึ่งเข้มกว่าสีผนัง อาคารจึงอ่านออกทั้งธีมสว่างและธีมมืด
-      ctx.strokeStyle = rgba(edge, f.active ? 0.45 : 0.15);
+      // ความเข้มของเส้นขอบไล่ตามความทึบของหน้า เลื่อนแถบไปที่ 0 แล้วอาคารจึงหายไปทั้งหลัง
+      ctx.strokeStyle = rgba(edge, Math.min(0.85, alpha * 2.25));
       ctx.lineWidth = f.kind === 'roof' ? 1.3 : 1;
       ctx.stroke();
     });
@@ -941,7 +951,8 @@ class Graph3DView {
           ctx.beginPath();
           ring.forEach((q, i) => (i ? ctx.lineTo(q.sx, q.sy) : ctx.moveTo(q.sx, q.sy)));
           ctx.closePath();
-          ctx.strokeStyle = rgba(color, walkable && active ? 0.45 : 0.15);
+          const k2 = this.buildingAlpha * (walkable && active ? 2.25 : 0.75);
+          ctx.strokeStyle = rgba(color, Math.min(0.85, k2));
           ctx.lineWidth = 1;
           ctx.stroke();
         }

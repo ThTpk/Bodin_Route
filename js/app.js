@@ -780,6 +780,15 @@ async function main() {
     state.view.setFloorGap(evt.target.value);
   });
 
+  /* ความทึบของโมเดลอาคาร — แถบเป็นเปอร์เซ็นต์ 0–50 ส่วนภาพใช้สัดส่วน 0–0.5 */
+  const alphaInput = $('#building-alpha');
+  const alphaOut = $('#building-alpha-out');
+  alphaInput.addEventListener('input', (evt) => {
+    const percent = Number(evt.target.value);
+    alphaOut.textContent = `${percent}%`;
+    state.view.setBuildingAlpha(percent / 100);
+  });
+
   $('#sheet-handle').addEventListener('click', () => {
     $('.sidebar').classList.toggle('is-expanded');
   });
