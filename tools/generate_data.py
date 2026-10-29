@@ -223,9 +223,6 @@ PLAZAS = [
     ("pz-b2",      "ลานหน้าตึก 2",                     -63.0,   12.0),
     ("pz-b3",      "ลานหน้าตึก 3",                     -56.0,  -23.0),
     ("pz-b4",      "ลานหน้าตึก 4",                     -50.0,  -60.0),
-    ("pz-c12",     "ลานกลางระหว่างตึก 1 กับตึก 2",       28.0,   45.0),
-    ("pz-c23",     "ลานกลางระหว่างตึก 2 กับตึก 3",       32.0,    9.0),
-    ("pz-c34",     "ลานกลางระหว่างตึก 3 กับตึก 4",       25.0,  -30.0),
     ("pz-blue",    "ลานหน้าอาคารหลังคาสีน้ำเงิน",        -2.0,  -70.0),
     ("pz-sport",   "ลานหน้าอาคารกีฬา",                  44.0,  -76.0),
     ("pz-b7",      "ลานหน้าตึก 7",                      -8.0, -110.0),
@@ -245,6 +242,9 @@ ENTRANCES = [
     ("ent-arcade",  "arcade",  1.0),
 ]
 
+# ทางเดินกลางแจ้งต้องเลาะไปตามทางเดินจริง ไม่ลัดผ่านตัวอาคารและไม่ลัดสนามกีฬา
+# เส้นทางเหนือ-ใต้ของสนามกีฬาจึงอ้อมไปทางฝั่งตะวันออกผ่านอัฒจันทร์
+# ส่วนสนามกีฬาเองต่อเข้ากับลานด้านใต้ทางเดียว เป็นปลายทาง ไม่ใช่ทางผ่าน
 OUTDOOR = [
     ("pz-b1", "pz-b2"), ("pz-b2", "pz-b3"), ("pz-b3", "pz-b4"),
     ("pz-b1", "ent-b1"), ("pz-b2", "ent-b2"), ("pz-b3", "ent-b3"), ("pz-b4", "ent-b4"),
@@ -252,19 +252,12 @@ OUTDOOR = [
     ("pz-bodin", "poi-bodinpipat"), ("pz-bodin", "pz-chalerm"), ("pz-bodin", "pz-b5n"),
     ("pz-b5n", "ent-b5n"),
     ("pz-chalerm", "ent-chalerm"), ("pz-chalerm", "pz-field-s"),
-    ("pz-field-s", "poi-field"), ("pz-field-s", "poi-stand"), ("pz-field-s", "pz-field-n"),
-    ("pz-field-n", "poi-field"), ("pz-field-n", "pz-house"),
+    ("pz-field-s", "poi-field"), ("pz-field-s", "poi-stand"),
+    ("poi-stand", "pz-field-n"), ("pz-field-n", "pz-house"),
     ("pz-house", "poi-house"),
     ("pz-b4", "pz-blue"), ("pz-blue", "poi-blue"), ("pz-blue", "pz-b7"), ("pz-blue", "pz-sport"),
     ("pz-sport", "poi-sport"), ("pz-sport", "poi-hall"), ("pz-sport", "ent-b5s"),
-    ("pz-sport", "pz-c34"), ("pz-c34", "poi-hall"),
     ("pz-b7", "ent-b7w"), ("pz-b7", "ent-b7e"), ("pz-b7", "pz-pool"), ("pz-pool", "poi-pool"),
-    ("pz-c12", "pz-c23"), ("pz-c23", "pz-c34"),
-    ("pz-c12", ("jn", "b1", "link", 1)), ("pz-c12", ("jn", "b2", "link", 1)),
-    ("pz-c12", ("jn", "b1", "b5", 1)),   ("pz-c12", ("jn", "b2", "b5", 1)),
-    ("pz-c23", ("jn", "b2", "link", 1)), ("pz-c23", ("jn", "b3", "link", 1)),
-    ("pz-c23", ("jn", "b2", "b5", 1)),   ("pz-c23", ("jn", "b3", "b5", 1)),
-    ("pz-c34", ("jn", "b3", "link", 1)), ("pz-c34", ("jn", "b4", "link", 1)),
     ("ent-arcade", "poi-bodinpipat"),
 ]
 

@@ -5693,51 +5693,6 @@
       "source": "รูปทรงอาคารจาก https://github.com/ThTpk/3D_Map สร้างกราฟด้วย tools/generate_data.py"
     },
     {
-      "id": "pz-c12",
-      "name": "ลานกลางระหว่างตึก 1 กับตึก 2",
-      "type": "plaza",
-      "building": null,
-      "floor": 1,
-      "x": 28.0,
-      "y": 45.0,
-      "description": "ลานและทางเดินกลางแจ้งที่ระดับพื้นดิน (ตำแหน่งประมาณจากภาพดาวเทียม)",
-      "photo": "",
-      "aliases": [
-        "กลางระหว่างตึก 1 กับตึก 2"
-      ],
-      "source": "รูปทรงอาคารจาก https://github.com/ThTpk/3D_Map สร้างกราฟด้วย tools/generate_data.py"
-    },
-    {
-      "id": "pz-c23",
-      "name": "ลานกลางระหว่างตึก 2 กับตึก 3",
-      "type": "plaza",
-      "building": null,
-      "floor": 1,
-      "x": 32.0,
-      "y": 9.0,
-      "description": "ลานและทางเดินกลางแจ้งที่ระดับพื้นดิน (ตำแหน่งประมาณจากภาพดาวเทียม)",
-      "photo": "",
-      "aliases": [
-        "กลางระหว่างตึก 2 กับตึก 3"
-      ],
-      "source": "รูปทรงอาคารจาก https://github.com/ThTpk/3D_Map สร้างกราฟด้วย tools/generate_data.py"
-    },
-    {
-      "id": "pz-c34",
-      "name": "ลานกลางระหว่างตึก 3 กับตึก 4",
-      "type": "plaza",
-      "building": null,
-      "floor": 1,
-      "x": 25.0,
-      "y": -30.0,
-      "description": "ลานและทางเดินกลางแจ้งที่ระดับพื้นดิน (ตำแหน่งประมาณจากภาพดาวเทียม)",
-      "photo": "",
-      "aliases": [
-        "กลางระหว่างตึก 3 กับตึก 4"
-      ],
-      "source": "รูปทรงอาคารจาก https://github.com/ThTpk/3D_Map สร้างกราฟด้วย tools/generate_data.py"
-    },
-    {
       "id": "pz-blue",
       "name": "ลานหน้าอาคารหลังคาสีน้ำเงิน",
       "type": "plaza",

@@ -381,7 +381,10 @@ function renderRoute() {
 }
 
 /* =============================================================
- * ล้างจุดเริ่มต้น จุดหมาย และเส้นทางทั้งหมด
+ * ล้างจุดเริ่มต้น จุดหมาย และเส้นทางที่แสดงอยู่
+ *
+ * ล้างเฉพาะการตั้งค่าเส้นทาง มุมกล้องอยู่ที่เดิม และแผงรายละเอียดโหนด
+ * ที่เปิดค้างไว้ก็ยังอยู่ จะได้ตั้งจุดใหม่จากแผงนั้นต่อได้ทันที
  * ============================================================= */
 function resetRoute() {
   state.start = null;
@@ -390,13 +393,10 @@ function resetRoute() {
   state.framedRoute = null;
   pickers.start.set(null);
   pickers.goal.set(null);
-  $('#detail-panel').hidden = true;
   state.view.setEndpoints(null, null);
-  state.view.select(null);
-  state.view.setFloor(null);
+  state.view.setFloor(null);     // คืนการเน้นชั้นที่เส้นทางตั้งไว้ กลับเป็นแสดงทุกชั้น
   updateFloorButtons();
   renderRoute();                 // ซ่อนแผงผลลัพธ์ และลบเส้นทางออกจากภาพ
-  state.view.resetView();        // คืนมุมกล้องเริ่มต้น (ลบมุมที่ frameRoute หมุนไว้ให้)
   history.replaceState(null, '', location.pathname + location.search);
   showToast('ล้างจุดเริ่มต้นและจุดหมายแล้ว');
 }
@@ -449,6 +449,25 @@ function findNearest(types, label) {
 /* =============================================================
  * แผงรายละเอียดสถานที่
  * ============================================================= */
+
+/**
+ * เลื่อนแถบด้านซ้ายให้เห็นแผงที่เพิ่งเปิด
+ * คลิกโหนดแล้วต้องเห็นชื่อโหนดกับปุ่มตั้งจุดเริ่มต้น/จุดหมายทันที ไม่ต้องเลื่อนหาเอง
+ * จอแคบที่แถบนี้เป็นแผ่นเลื่อนขึ้นจากด้านล่าง ต้องกางแผ่นออกก่อนถึงจะเห็น
+ */
+function revealPanel(panel) {
+  const sidebar = panel.closest('.sidebar');
+  if (!sidebar) return;
+  if (window.matchMedia('(max-width: 900px)').matches) {
+    sidebar.classList.add('is-expanded');
+  }
+  // วัดและเลื่อนทันที เนื้อหาของแผงถูกใส่ไปแล้วตอนนี้ ระยะจึงอ่านได้เลย
+  // (การเลื่อนด้วย transform ของแผ่นด้านล่างไม่กระทบผลต่างนี้ เพราะขยับทั้งคู่เท่ากัน)
+  // ไม่ใช้ behavior: "smooth" เพราะเบราว์เซอร์จะไม่ขยับเลยถ้าหน้าไม่ได้วาดอยู่
+  const delta = panel.getBoundingClientRect().top - sidebar.getBoundingClientRect().top;
+  sidebar.scrollTop += delta - 8;
+}
+
 function showNodeDetail(node) {
   const panel = $('#detail-panel');
   const style = TYPE_STYLE[node.type] || {};
@@ -493,6 +512,8 @@ function showNodeDetail(node) {
   $('.detail-context', panel).textContent = nodeContext(node);
   if (node.description) $('.detail-desc', panel).textContent = node.description;
   $$('.fact-value', panel).forEach((dd, i) => { dd.textContent = facts[i][1]; });
+
+  revealPanel(panel);
 
   $('#detail-close', panel).addEventListener('click', () => { panel.hidden = true; });
   $('#set-start', panel).addEventListener('click', () => {
