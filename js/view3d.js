@@ -389,9 +389,11 @@ class Graph3DView {
     const dz = planeZ - this.target.z;
 
     // c.up = v*D, c.depth = D - dist  และ  dz = c.up*cp - c.depth*sp
-    const den = v * cp + sp;
+    //   dz = D*(v*cp - sp) + dist*sp   ->   D = (dist*sp - dz) / (sp - v*cp)
+    // จุดที่อยู่สูงบนจอ (v มาก) ตัวหารยิ่งเล็ก ระยะ D ยิ่งไกล ตรงกับความเป็นจริง
+    const den = sp - v * cp;
     if (Math.abs(den) < 1e-6) return null;
-    const depth = (dz + this.dist * sp) / den;
+    const depth = (this.dist * sp - dz) / den;
     if (!(depth > 1)) return null;
 
     const x1 = u * depth;

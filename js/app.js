@@ -476,6 +476,10 @@ function showNodeDetail(node) {
       </div>
       <button type="button" class="icon-btn" id="detail-close" aria-label="ปิด">✕</button>
     </div>
+    <div class="detail-actions">
+      <button type="button" class="btn btn-ghost" id="set-start">ตั้งเป็นจุดเริ่มต้น</button>
+      <button type="button" class="btn btn-primary" id="set-goal">นำทางไปที่นี่</button>
+    </div>
     ${node.photo ? `<img class="detail-photo" src="${node.photo}" alt="" loading="lazy"
         onerror="this.remove()">`
       : `<div class="detail-photo detail-photo--empty">ยังไม่มีรูปถ่ายของสถานที่นี้<br>
@@ -483,11 +487,7 @@ function showNodeDetail(node) {
     ${node.description ? '<p class="detail-desc"></p>' : ''}
     <dl class="detail-facts">
       ${facts.map(([k, v]) => `<div><dt>${k}</dt><dd class="fact-value"></dd></div>`).join('')}
-    </dl>
-    <div class="detail-actions">
-      <button type="button" class="btn btn-ghost" id="set-start">ตั้งเป็นจุดเริ่มต้น</button>
-      <button type="button" class="btn btn-primary" id="set-goal">นำทางไปที่นี่</button>
-    </div>`;
+    </dl>`;
 
   $('.detail-name', panel).textContent = node.name;
   $('.detail-context', panel).textContent = nodeContext(node);
@@ -738,19 +738,6 @@ async function main() {
     if (state.route && state.route.found) state.view.frameRoute();
     else showToast('ยังไม่มีเส้นทาง — เลือกจุดเริ่มต้นและจุดหมายก่อน');
   });
-
-  /* ---- แผงเลื่อนจุดศูนย์กลาง / หมุนมุมมอง ---- */
-  const ROTATE_STEP = { ccw: [-0.22, 0], cw: [0.22, 0], up: [0, 0.16], down: [0, -0.16] };
-  $$('#view-pad [data-pan]').forEach((btn) => {
-    btn.addEventListener('click', () => state.view.panDirection(btn.dataset.pan));
-  });
-  $$('#view-pad [data-rotate]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const [dYaw, dPitch] = ROTATE_STEP[btn.dataset.rotate] || [0, 0];
-      state.view.rotateBy(dYaw, dPitch);
-    });
-  });
-  $('#pan-center').addEventListener('click', () => state.view.recenter());
 
   /* ---- ปุ่มสลับสถานะของภาพ 3 มิติ ---- */
   const toggle = (id, apply) => {
