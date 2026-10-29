@@ -94,7 +94,11 @@ const buildings = raw.map((b) => {
       const axis = wingAxis(ring);
       if (axis) out.axis = axis;
       if (p.roofType) out.roofType = p.roofType;
+      if (p.ends) out.ends = p.ends.slice();
+      if (typeof p.pitch === 'number') out.pitch = p.pitch;
+      if (typeof p.ridgeEdge === 'number') out.ridgeEdge = p.ridgeEdge;
       if (p.roof) out.roof = p.roof;
+      if (p.wall) out.wall = p.wall;
       if (p.voids) out.voids = p.voids;
       if (p.walkway) out.walkway = p.walkway;
       if (p.bleachers) out.bleachers = p.bleachers;
@@ -119,6 +123,7 @@ const buildings = raw.map((b) => {
     height,
     wall: b.wall || null,
     roof: b.roof || null,
+    roofType: b.roofType || null,
     facade: b.facade || null,
     size: typeof b.size === 'number' ? b.size : null,
     center,

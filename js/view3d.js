@@ -6,10 +6,16 @@
  *   - เส้นเชื่อมจาก data/edges.json
  *
  * คณิตศาสตร์ที่ใช้
- *   1) หมุนรอบแกน Z ด้วยมุม yaw   (ลากซ้าย-ขวา)
- *   2) เอียงรอบแกน X ด้วยมุม pitch (ลากขึ้น-ลง)
+ *   1) หมุนรอบแกน Z ด้วยมุม yaw   (หมุนแผนที่ซ้าย-ขวา)
+ *   2) เอียงรอบแกน X ด้วยมุม pitch (ก้ม-เงย)
  *   3) ฉายภาพแบบเปอร์สเปกทีฟ  scale = focal / (dist + depth)
  *   4) เรียงลำดับวาดจากไกลไปใกล้ (painter's algorithm) เพื่อให้ทับกันถูกต้อง
+ *
+ * การควบคุมเป็นแบบเดียวกับโปรแกรมแผนที่ (Google Maps)
+ *   ลากซ้าย            เลื่อนแผนที่
+ *   ลากขวา / Ctrl+ลาก / Shift+ลาก   หมุนและก้ม-เงย
+ *   สกรอลล์            ซูมเข้าหาตำแหน่งเมาส์
+ *   สองนิ้ว            หุบ-กาง = ซูม · บิด = หมุน · เลื่อน = เลื่อนแผนที่
  *
  * ระยะระหว่างชั้นบนภาพถูกขยายให้มากกว่าความจริง เพื่อให้แยกชั้นได้ด้วยตา
  * ค่านี้ใช้กับการวาดภาพอย่างเดียว ไม่กระทบการคำนวณเส้นทาง
@@ -70,7 +76,7 @@ const THEMES = {
 const ROUTE_COLOR = '#f97316';
 const SELECT_COLOR = '#facc15';
 
-/* ความทึบของโมเดลอาคาร (0.20 = โปร่งแสง 80% มองทะลุเห็นเส้นทางข้างใน) */
+/* ความทึบของทุกหน้าในโมเดลอาคาร = โปร่งแสง 20% มองทะลุเห็นเส้นทางข้างใน */
 const BUILDING_ALPHA = 0.20;
 
 const TAU = Math.PI * 2;
@@ -82,6 +88,64 @@ function wrapAngle(a) {
   if (x > Math.PI) x -= TAU;
   if (x <= -Math.PI) x += TAU;
   return x;
+}
+
+const ROOF_PITCH = 0.32;   // ความชันหลังคาปริยายของผัง 3 มิติ = ความสูงสัน / ความกว้าง
+
+/**
+ * ทรงหลังคาของปีกอาคารสี่เหลี่ยม ตามค่า roofType / ends / pitch ของ buildings.js
+ *
+ * สันหลังคาวางตามแนวยาวของปีก ปลายที่เป็น "hip" ลาดเข้าหาสันเป็นทรงปั้นหยา
+ * ส่วนปลายที่เป็น "gable" ตัดตรงเป็นหน้าจั่ว (ผนังสามเหลี่ยม ไม่ใช่หลังคา)
+ * คืน null เมื่อหลังคาแบน หรือรูปทรงไม่ใช่สี่เหลี่ยมจนวางสันไม่ได้
+ *
+ * @param {{x:number,y:number}[]} ring  รูปทรงปีกอาคาร เรียงทวนเข็ม
+ * @returns {{rise:number, a:{x,y}, b:{x,y}, i:number, ends:string[]}|null}
+ *          rise = ความสูงจากชายคาถึงสัน (เมตร) · a, b = ปลายสันทั้งสองข้าง
+ *          i = ดัชนีจุดเริ่มของด้านยาว (ring[i] -> ring[i+1])
+ */
+function roofGeometry(ring, roofType, ends, pitch) {
+  if (roofType !== 'hip' && roofType !== 'gable') return null;
+  if (ring.length !== 4) return null;
+
+  // ด้านยาวที่สุดคือแนวของสันหลังคา
+  let i = 0;
+  let best = -1;
+  for (let k = 0; k < 4; k += 1) {
+    const a = ring[k];
+    const c = ring[(k + 1) % 4];
+    const len = Math.hypot(c.x - a.x, c.y - a.y);
+    if (len > best) { best = len; i = k; }
+  }
+  const p = (k) => ring[(i + k) % 4];
+  const midA = { x: (p(0).x + p(3).x) / 2, y: (p(0).y + p(3).y) / 2 };
+  const midB = { x: (p(1).x + p(2).x) / 2, y: (p(1).y + p(2).y) / 2 };
+  const width = Math.hypot(p(3).x - p(0).x, p(3).y - p(0).y);
+  const span = Math.hypot(midB.x - midA.x, midB.y - midA.y);
+  if (!(width > 0.01) || !(span > 0.01)) return null;
+
+  const kind = (ends && ends.length === 2) ? ends : [roofType, roofType];
+  const ux = (midB.x - midA.x) / span;
+  const uy = (midB.y - midA.y) / span;
+  // ปลายปั้นหยาเริ่มสันเข้ามาครึ่งหนึ่งของความกว้าง หน้าจั่วเริ่มสันที่ผนังเลย
+  const inA = kind[0] === 'hip' ? Math.min(width / 2, span / 2) : 0;
+  const inB = kind[1] === 'hip' ? Math.min(width / 2, span / 2) : 0;
+  return {
+    rise: (typeof pitch === 'number' ? pitch : ROOF_PITCH) * width,
+    a: { x: midA.x + ux * inA, y: midA.y + uy * inA },
+    b: { x: midB.x - ux * inB, y: midB.y - uy * inB },
+    i,
+    ends: kind,
+  };
+}
+
+/**
+ * ลากแบบไหนคือ "หมุน" — ปุ่มขวา ปุ่มกลาง หรือกดปุ่มร่วมค้างไว้
+ * นอกนั้นคือเลื่อนแผนที่ เหมือนการควบคุมของ Google Maps
+ */
+function isRotateDrag(evt) {
+  return evt.button === 1 || evt.button === 2
+      || evt.ctrlKey || evt.shiftKey || evt.metaKey || evt.altKey;
 }
 
 /** แปลงสี #rrggbb + ค่าความทึบ เป็น rgba() */
@@ -157,7 +221,7 @@ class Graph3DView {
     this.typeFilter = null;       // null = แสดงทุกประเภท
     this.showEdges = true;        // false = แสดงเฉพาะเส้นทางที่ค้นหา
     this.showGrid = true;
-    this.showBuildings = true;    // กล่องอาคารโปร่งแสง เส้นทางวิ่งอยู่ข้างใน
+    this.showBuildings = true;    // โมเดลอาคารโปร่งแสง เส้นทางวิ่งอยู่ข้างใน
     this.showLabels = true;
     this.autoRotate = false;
 
@@ -309,6 +373,50 @@ class Graph3DView {
       depth,
       scale: s,
     };
+  }
+
+  /**
+   * ผกผันของ project(): จุดบนจอ -> จุดในโลกที่ระนาบ z = planeZ
+   * ใช้ตอนซูมเข้าหาตำแหน่งเมาส์ (จุดใต้เคอร์เซอร์ต้องอยู่กับที่) แบบเดียวกับแผนที่
+   * คืน null เมื่อรังสีจากกล้องขนานกับระนาบ หรือจุดตัดอยู่หลังกล้อง
+   */
+  unprojectToPlane(sx, sy, planeZ) {
+    const f = this.focal;
+    const u = (sx - this.width / 2) / f;
+    const v = (this.height / 2 - sy) / f;
+    const cp = Math.cos(this.pitch);
+    const sp = Math.sin(this.pitch);
+    const dz = planeZ - this.target.z;
+
+    // c.up = v*D, c.depth = D - dist  และ  dz = c.up*cp - c.depth*sp
+    const den = v * cp + sp;
+    if (Math.abs(den) < 1e-6) return null;
+    const depth = (dz + this.dist * sp) / den;
+    if (!(depth > 1)) return null;
+
+    const x1 = u * depth;
+    const y1 = v * depth * sp + (depth - this.dist) * cp;
+    const cy = Math.cos(this.yaw);
+    const sy2 = Math.sin(this.yaw);
+    return {
+      x: this.target.x + x1 * cy + y1 * sy2,
+      y: this.target.y - x1 * sy2 + y1 * cy,
+      z: planeZ,
+    };
+  }
+
+  /** ซูมโดยตรึงจุดใต้เคอร์เซอร์ไว้กับที่ (ถ้าไม่ส่งตำแหน่งมา จะซูมเข้ากลางจอ) */
+  zoomAt(factor, sx, sy) {
+    const before = (sx === undefined) ? null : this.unprojectToPlane(sx, sy, this.groundZ);
+    this.dist = clamp(this.dist * factor, 40, 4000);
+    if (before) {
+      const after = this.unprojectToPlane(sx, sy, this.groundZ);
+      if (after) {
+        this.target.x += before.x - after.x;
+        this.target.y += before.y - after.y;
+      }
+    }
+    this.invalidate();
   }
 
   /* =============================================================
@@ -655,7 +763,7 @@ class Graph3DView {
 
     if (this.showGrid) this.drawFloorPlanes();
     // ผนังด้านไกลวาดก่อน แล้วค่อยวาดเส้นทาง จากนั้นปิดทับด้วยผนังด้านใกล้
-    // เส้นทางจึงดู "อยู่ภายใน" กล่องอาคารโปร่งแสง
+    // เส้นทางจึงดู "อยู่ภายใน" โมเดลอาคารโปร่งแสง
     this.drawBuildings('back');
     this.drawEdges();
     this.drawRouteFlow();
@@ -667,6 +775,8 @@ class Graph3DView {
 
   /* =============================================================
    * โมเดลอาคารโปร่งแสง
+   * รูปทรง สี และทรงหลังคามาจาก buildings.js ของ https://github.com/ThTpk/3D_Map
+   * ผ่าน data/buildings.json คีย์ model ทุกหน้าวาดด้วยความทึบ BUILDING_ALPHA
    * ============================================================= */
 
   /**
@@ -690,7 +800,8 @@ class Graph3DView {
       const floors = (b.floors && b.floors.length) ? b.floors.slice() : [1];
       const height = Number(b.height) > 0 ? Number(b.height) : floors.length * this.floorHeight;
 
-      polys.forEach((poly) => {
+      const model = b.model || {};
+      polys.forEach((poly, idx) => {
         const ring = poly.map((pt) => ({ x: pt[0], y: pt[1] }));
         // บังคับลำดับจุดให้ทวนเข็มในพิกัดโลก ทุกหน้าจะได้มีทิศทางเดียวกัน
         let twice = 0;
@@ -700,8 +811,15 @@ class Graph3DView {
           twice += a.x * c.y - c.x * a.y;
         }
         if (twice < 0) ring.reverse();
+
+        // สีและทรงหลังคาจากผัง 3 มิติ ปีกไหนไม่ได้กำหนดจะใช้ค่าของทั้งอาคาร
+        const pm = (model.parts && model.parts[idx]) || {};
+        const roofType = pm.roofType || model.roofType || 'flat';
         shapes.push({
           b, ring, floors, height,
+          wallColor: pm.wall || model.wall || b.color || '#64748b',
+          roofColor: pm.roof || model.roof || b.color || '#64748b',
+          roof: roofGeometry(ring, roofType, pm.ends, pm.pitch),
           area: Math.abs(twice) / 2,
           cx: ring.reduce((t, q) => t + q.x, 0) / ring.length,
           cy: ring.reduce((t, q) => t + q.y, 0) / ring.length,
@@ -730,7 +848,7 @@ class Graph3DView {
   }
 
   /**
-   * วาดกล่องอาคารโปร่งแสง
+   * วาดโมเดลอาคารโปร่งแสง — ผนัง หลังคาจั่ว/ปั้นหยา และสีจริงจากผัง 3 มิติ
    * @param {'back'|'front'} pass  back = หน้าที่หันออกจากกล้อง (วาดก่อนเส้นทาง)
    *                               front = หน้าที่หันเข้าหากล้อง (วาดทับเส้นทาง)
    */
@@ -742,14 +860,15 @@ class Graph3DView {
     this.buildingShapes().forEach((shape) => {
       const span = this.buildingSpan(shape);
       const bottom = shape.ring.map((q) => this.project({ x: q.x, y: q.y, z: span.lo }));
-      const top = shape.ring.map((q) => this.project({ x: q.x, y: q.y, z: span.hi }));
-      if (bottom.some((q) => !q) || top.some((q) => !q)) return;
+      const eave = shape.ring.map((q) => this.project({ x: q.x, y: q.y, z: span.hi }));
+      if (bottom.some((q) => !q) || eave.some((q) => !q)) return;
 
       // หลังคาหันเข้าหากล้องเสมอเมื่อมองจากด้านบน ใช้เป็นตัวเทียบทิศของหน้าอื่น
-      const faceSign = Math.sign(screenArea(top)) || 1;
+      const faceSign = Math.sign(screenArea(eave)) || 1;
       const active = this.floor === null || shape.floors.includes(this.floor);
 
       const add = (pts, kind) => {
+        if (pts.some((q) => !q)) return;
         const isFront = (Math.sign(screenArea(pts)) || 1) === faceSign;
         if ((pass === 'front') !== isFront) return;
         faces.push({
@@ -758,12 +877,30 @@ class Graph3DView {
         });
       };
 
-      add(top, 'roof');
       add(bottom.slice().reverse(), 'floor');
       for (let i = 0; i < shape.ring.length; i += 1) {
         const j = (i + 1) % shape.ring.length;
-        add([bottom[i], bottom[j], top[j], top[i]], 'wall');
+        add([bottom[i], bottom[j], eave[j], eave[i]], 'wall');
       }
+
+      const roof = shape.roof;
+      if (!roof) {
+        add(eave, 'roof');                       // หลังคาแบน
+        return;
+      }
+
+      // หลังคาจั่ว/ปั้นหยา: สันอยู่สูงกว่าชายคาเท่ากับ rise
+      const ridgeZ = span.hi + this.zFromMeters(roof.rise);
+      const ra = this.project({ x: roof.a.x, y: roof.a.y, z: ridgeZ });
+      const rb = this.project({ x: roof.b.x, y: roof.b.y, z: ridgeZ });
+      if (!ra || !rb) { add(eave, 'roof'); return; }
+
+      const e = (k) => eave[(roof.i + k) % 4];
+      add([e(0), e(1), rb, ra], 'roof');          // ลาดหลังคาด้านยาวฝั่งหนึ่ง
+      add([e(2), e(3), ra, rb], 'roof');          // อีกฝั่งหนึ่ง
+      // ปลายปั้นหยา = หลังคาสามเหลี่ยม · ปลายจั่ว = ผนังสามเหลี่ยมใต้หน้าจั่ว
+      add([e(3), e(0), ra], roof.ends[0] === 'hip' ? 'roof' : 'gable');
+      add([e(1), e(2), rb], roof.ends[1] === 'hip' ? 'roof' : 'gable');
     });
 
     if (!faces.length) return;
@@ -772,27 +909,26 @@ class Graph3DView {
     ctx.save();
     ctx.lineJoin = 'round';
     faces.forEach((f) => {
-      const color = f.shape.b.color || '#64748b';
-      let alpha = BUILDING_ALPHA;
-      if (f.kind === 'roof') alpha *= 1.15;
-      if (f.kind === 'floor') alpha *= 0.55;
-      if (pass === 'front') alpha *= 0.6;   // ด้านใกล้จางกว่า จะได้มองทะลุเห็นเส้นทาง
-      if (!f.active) alpha *= 0.3;
+      // สีผนัง/หลังคาจริงจากผัง 3 มิติ ทุกหน้าโปร่งแสงเท่ากันที่ BUILDING_ALPHA
+      const color = f.kind === 'roof' ? f.shape.roofColor : f.shape.wallColor;
+      const edge = f.shape.roofColor;
+      const alpha = f.active ? BUILDING_ALPHA : BUILDING_ALPHA * 0.3;
 
       ctx.beginPath();
       f.pts.forEach((q, i) => (i ? ctx.lineTo(q.sx, q.sy) : ctx.moveTo(q.sx, q.sy)));
       ctx.closePath();
       ctx.fillStyle = rgba(color, alpha);
       ctx.fill();
-      ctx.strokeStyle = rgba(color, Math.min(0.85, alpha * 3));
-      ctx.lineWidth = f.kind === 'roof' ? 1.4 : 1;
+      // เส้นขอบใช้สีหลังคาซึ่งเข้มกว่าสีผนัง อาคารจึงอ่านออกทั้งธีมสว่างและธีมมืด
+      ctx.strokeStyle = rgba(edge, f.active ? 0.45 : 0.15);
+      ctx.lineWidth = f.kind === 'roof' ? 1.3 : 1;
       ctx.stroke();
     });
 
     // เส้นแบ่งชั้นภายในกล่อง วาดตอนผ่าน back รอบเดียว จะได้ไม่ซ้อนกันสองชั้น
     if (pass === 'back') {
       this.buildingShapes().forEach((shape) => {
-        const color = shape.b.color || '#64748b';
+        const color = shape.roofColor;
         const levels = shape.b.modelFloors || shape.floors.length;
         for (let k = 1; k < levels; k += 1) {
           const z = this.groundZ + this.zFromMeters((shape.height * k) / levels);
@@ -1257,16 +1393,32 @@ class Graph3DView {
     return best;
   }
 
+  /**
+   * ลากแผนที่: ตรึงจุดบนพื้นใต้เคอร์เซอร์ให้ติดนิ้วไปตลอด เหมือนการลากแผนที่
+   * คืน false เมื่อรังสีจากกล้องไม่ตัดระนาบพื้น (มองเกือบขนานพื้น) ให้ผู้เรียกใช้ panBy แทน
+   */
+  grabPan(fromX, fromY, toX, toY) {
+    const a = this.unprojectToPlane(fromX, fromY, this.groundZ);
+    const b = this.unprojectToPlane(toX, toY, this.groundZ);
+    if (!a || !b) return false;
+    this.target.x += a.x - b.x;
+    this.target.y += a.y - b.y;
+    this.invalidate();
+    return true;
+  }
+
   panBy(dxPx, dyPx) {
-    // เลื่อนเป้ากล้องในระนาบที่ตั้งฉากกับทิศมอง
+    // เลื่อนไปบนระนาบพื้น กล้องจึงอยู่ระดับความสูงเดิมเสมอเหมือนแผนที่
+    if (this.grabPan(this.width / 2, this.height / 2,
+                     this.width / 2 + dxPx, this.height / 2 + dyPx)) return;
+
+    // มองเกือบขนานพื้นจนหาจุดตัดไม่ได้ — ถอยไปเลื่อนในระนาบที่ตั้งฉากกับทิศมอง
     const k = (this.dist + 1) / this.focal;
     const right = { x: Math.cos(this.yaw), y: Math.sin(this.yaw) };
     const cp = Math.cos(this.pitch);
     const up = { x: -Math.sin(this.yaw) * cp, y: Math.cos(this.yaw) * cp };
-    const upZ = Math.sin(this.pitch);
     this.target.x -= (right.x * dxPx - up.x * dyPx) * k;
     this.target.y -= (right.y * dxPx - up.y * dyPx) * k;
-    this.target.z += upZ * dyPx * k;
     this.invalidate();
   }
 
@@ -1277,10 +1429,20 @@ class Graph3DView {
     let last = null;
     let moved = 0;
     let pinch = 0;
+    let twist = 0;
+    let mid = null;
 
     const pos = (evt) => {
       const r = canvas.getBoundingClientRect();
       return { x: evt.clientX - r.left, y: evt.clientY - r.top };
+    };
+    const twoFinger = () => {
+      const [a, b] = [...pointers.values()];
+      return {
+        gap: Math.hypot(a.x - b.x, a.y - b.y),
+        angle: Math.atan2(b.y - a.y, b.x - a.x),
+        mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
+      };
     };
 
     canvas.addEventListener('pointerdown', (evt) => {
@@ -1288,12 +1450,14 @@ class Graph3DView {
       pointers.set(evt.pointerId, pos(evt));
       moved = 0;
       if (pointers.size === 2) {
-        const [a, b] = [...pointers.values()];
-        pinch = Math.hypot(a.x - b.x, a.y - b.y);
+        const t = twoFinger();
+        pinch = t.gap;
+        twist = t.angle;
+        mid = t.mid;
         mode = 'pinch';
       } else {
         last = pos(evt);
-        mode = (evt.shiftKey || evt.button === 1 || evt.button === 2) ? 'pan' : 'rotate';
+        mode = isRotateDrag(evt) ? 'rotate' : 'pan';
       }
       canvas.classList.add('is-dragging');
       this._anim = null;
@@ -1316,23 +1480,26 @@ class Graph3DView {
       pointers.set(evt.pointerId, p);
 
       if (mode === 'pinch' && pointers.size === 2) {
-        const [a, b] = [...pointers.values()];
-        const d = Math.hypot(a.x - b.x, a.y - b.y);
-        if (pinch > 0 && d > 0) {
-          this.dist = clamp(this.dist * (pinch / d), 40, 4000);
-          this.invalidate();
-        }
-        pinch = d;
+        // สองนิ้ว: หุบ-กาง = ซูม · บิด = หมุน · เลื่อนพร้อมกัน = เลื่อนแผนที่
+        const t = twoFinger();
+        if (pinch > 0 && t.gap > 0) this.zoomAt(pinch / t.gap, t.mid.x, t.mid.y);
+        this.yaw = (this.yaw - wrapAngle(t.angle - twist)) % TAU;
+        if (mid) this.panBy(t.mid.x - mid.x, t.mid.y - mid.y);
+        pinch = t.gap;
+        twist = t.angle;
+        mid = t.mid;
+        this.invalidate();
         return;
       }
 
-      const dx = p.x - last.x;
-      const dy = p.y - last.y;
+      const prev = last;
+      const dx = p.x - prev.x;
+      const dy = p.y - prev.y;
       last = p;
       moved += Math.abs(dx) + Math.abs(dy);
 
       if (mode === 'pan') {
-        this.panBy(dx, dy);
+        if (!this.grabPan(prev.x, prev.y, p.x, p.y)) this.panBy(dx, dy);
       } else {
         this.yaw = (this.yaw - dx * 0.008) % TAU;
         this.pitch = clamp(this.pitch + dy * 0.006, 0.06, 1.52);
@@ -1352,8 +1519,10 @@ class Graph3DView {
         }
         mode = null;
       } else if (pointers.size === 1) {
-        mode = 'rotate';
+        mode = 'pan';
         last = [...pointers.values()][0];
+        pinch = 0;
+        mid = null;
       }
     };
     canvas.addEventListener('pointerup', end);
@@ -1362,11 +1531,11 @@ class Graph3DView {
 
     canvas.addEventListener('wheel', (evt) => {
       evt.preventDefault();
-      this.dist = clamp(this.dist * Math.exp(evt.deltaY * 0.0012), 40, 4000);
-      this.invalidate();
+      const p = pos(evt);
+      this.zoomAt(Math.exp(evt.deltaY * 0.0012), p.x, p.y);
     }, { passive: false });
 
-    /* คีย์บอร์ด: ลูกศร = เลื่อนจุดศูนย์กลาง, Shift+ลูกศร = หมุน/เอียง,
+    /* คีย์บอร์ด: ลูกศร = เลื่อนแผนที่, Shift+ลูกศร = หมุน/เอียง,
      * + - = ซูม, F = พอดีจอ, C = กลับไปกึ่งกลางกราฟ */
     canvas.setAttribute('tabindex', '0');
     canvas.addEventListener('keydown', (evt) => {

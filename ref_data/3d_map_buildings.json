@@ -18,6 +18,7 @@
       "height": 7.2,
       "wall": "#f4f4f2",
       "roof": "#6f7c92",
+      "roofType": "gable",
       "facade": "arch",
       "size": null,
       "center": [
@@ -59,7 +60,12 @@
             ],
             "length": 49.11,
             "width": 27.28
-          }
+          },
+          "ends": [
+            "gable",
+            "gable"
+          ],
+          "pitch": 0.25
         },
         {
           "footprint": [
@@ -133,6 +139,11 @@
             "length": 10.06,
             "width": 8.01
           },
+          "ends": [
+            "gable",
+            "gable"
+          ],
+          "pitch": 0.45,
           "roof": "#2b3a66",
           "walkway": {
             "open": 1,
@@ -265,6 +276,7 @@
       "height": 15,
       "wall": "#f2f3f4",
       "roof": "#3a4a6e",
+      "roofType": "gable",
       "facade": null,
       "size": null,
       "center": [
@@ -351,6 +363,10 @@
             "width": 5
           },
           "roofType": "gable",
+          "ends": [
+            "gable",
+            "gable"
+          ],
           "roof": "#f2f3f4"
         },
         {
@@ -389,6 +405,10 @@
             "width": 5
           },
           "roofType": "gable",
+          "ends": [
+            "gable",
+            "gable"
+          ],
           "roof": "#f2f3f4"
         }
       ],
@@ -405,6 +425,7 @@
       "height": 10.8,
       "wall": "#f4f4f2",
       "roof": "#2f3d72",
+      "roofType": "hip",
       "facade": null,
       "size": null,
       "center": [
@@ -447,6 +468,10 @@
             "length": 12.52,
             "width": 4.99
           },
+          "ends": [
+            "gable",
+            "gable"
+          ],
           "walkway": {
             "open": 1,
             "arches": true
@@ -466,6 +491,7 @@
       "height": 14.4,
       "wall": "#f1f2f4",
       "roof": "#2f4373",
+      "roofType": "hip",
       "facade": "ribbon",
       "size": null,
       "center": [
@@ -508,6 +534,10 @@
             "length": 106.16,
             "width": 13
           },
+          "ends": [
+            "hip",
+            "gable"
+          ],
           "voids": [
             {
               "from": 76.5,
@@ -530,6 +560,7 @@
       "height": 14.4,
       "wall": "#f1f2f4",
       "roof": "#2f4373",
+      "roofType": "hip",
       "facade": "ribbon",
       "size": null,
       "center": [
@@ -572,6 +603,10 @@
             "length": 105.55,
             "width": 13
           },
+          "ends": [
+            "hip",
+            "gable"
+          ],
           "voids": [
             {
               "from": 75.9,
@@ -594,6 +629,7 @@
       "height": 14.4,
       "wall": "#f1f2f4",
       "roof": "#2f4373",
+      "roofType": "hip",
       "facade": "ribbon",
       "size": null,
       "center": [
@@ -636,6 +672,10 @@
             "length": 104.79,
             "width": 12.99
           },
+          "ends": [
+            "hip",
+            "gable"
+          ],
           "voids": [
             {
               "from": 75.1,
@@ -658,6 +698,7 @@
       "height": 14.4,
       "wall": "#f1f2f4",
       "roof": "#2f4373",
+      "roofType": "hip",
       "facade": "ribbon",
       "size": null,
       "center": [
@@ -699,7 +740,11 @@
             ],
             "length": 66.71,
             "width": 13
-          }
+          },
+          "ends": [
+            "hip",
+            "gable"
+          ]
         }
       ],
       "stairs": []
@@ -715,6 +760,7 @@
       "height": 14.4,
       "wall": "#f1f2f4",
       "roof": "#2f4373",
+      "roofType": "hip",
       "facade": "ribbon",
       "size": null,
       "center": [
@@ -756,7 +802,11 @@
             ],
             "length": 144.22,
             "width": 12.99
-          }
+          },
+          "ends": [
+            "hip",
+            "hip"
+          ]
         }
       ],
       "stairs": []
@@ -772,6 +822,7 @@
       "height": 14.4,
       "wall": "#f1f2f4",
       "roof": "#2f4373",
+      "roofType": "hip",
       "facade": "ribbon",
       "size": null,
       "center": [
@@ -813,7 +864,11 @@
             ],
             "length": 33.31,
             "width": 13
-          }
+          },
+          "ends": [
+            "gable",
+            "gable"
+          ]
         },
         {
           "footprint": [
@@ -849,7 +904,11 @@
             ],
             "length": 33.75,
             "width": 13.01
-          }
+          },
+          "ends": [
+            "gable",
+            "gable"
+          ]
         },
         {
           "footprint": [
@@ -885,7 +944,11 @@
             ],
             "length": 33.75,
             "width": 12.99
-          }
+          },
+          "ends": [
+            "gable",
+            "gable"
+          ]
         }
       ],
       "stairs": []
@@ -901,6 +964,7 @@
       "height": 14.4,
       "wall": "#f1f2f4",
       "roof": "#2b3a66",
+      "roofType": "gable",
       "facade": null,
       "size": null,
       "center": [
@@ -943,6 +1007,10 @@
             "length": 33.44,
             "width": 6.01
           },
+          "ends": [
+            "gable",
+            "gable"
+          ],
           "walkway": {
             "open": 2
           }
@@ -982,6 +1050,10 @@
             "length": 33.17,
             "width": 6
           },
+          "ends": [
+            "gable",
+            "gable"
+          ],
           "walkway": {
             "open": 2
           }
@@ -1000,6 +1072,7 @@
       "height": 14.4,
       "wall": "#ece6d6",
       "roof": "#2f4373",
+      "roofType": "hip",
       "facade": null,
       "size": null,
       "center": [
@@ -1077,6 +1150,7 @@
       "height": 11,
       "wall": "#e4e0d8",
       "roof": "#b9c0c6",
+      "roofType": "gable",
       "facade": null,
       "size": null,
       "center": [
@@ -1134,6 +1208,7 @@
       "height": 10,
       "wall": "#e4e0d8",
       "roof": "#3c4149",
+      "roofType": "hip",
       "facade": null,
       "size": null,
       "center": [
@@ -1191,6 +1266,7 @@
       "height": 7.2,
       "wall": "#5b3a22",
       "roof": "#b4552f",
+      "roofType": "hip",
       "facade": "teak",
       "size": null,
       "center": [
@@ -1240,6 +1316,7 @@
       "height": 3.4,
       "wall": null,
       "roof": null,
+      "roofType": null,
       "facade": null,
       "size": null,
       "center": [
@@ -1305,6 +1382,7 @@
       "height": 8,
       "wall": "#dfe3e6",
       "roof": "#a9b9c9",
+      "roofType": "gable",
       "facade": null,
       "size": null,
       "center": [
@@ -1362,6 +1440,7 @@
       "height": 10,
       "wall": "#e4e0d8",
       "roof": "#2f5fb8",
+      "roofType": "gable",
       "facade": null,
       "size": null,
       "center": [
@@ -1419,6 +1498,7 @@
       "height": null,
       "wall": null,
       "roof": null,
+      "roofType": null,
       "facade": null,
       "size": null,
       "center": [

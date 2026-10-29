@@ -657,6 +657,25 @@ def bbox(polys):
     return [round(min(xs), 2), round(min(ys), 2), round(max(xs), 2), round(max(ys), 2)]
 
 
+# คีย์ของปีกอาคารที่ส่งต่อไปให้ view3d.js วาดหลังคาและผนัง (ค่าจาก buildings.js ของ 3D_Map)
+PART_MODEL_KEYS = ("roofType", "ends", "pitch", "ridgeEdge", "roof", "wall")
+
+
+def model_of(src, parts):
+    """ข้อมูลหน้าตาอาคารจากผัง 3 มิติ — สีผนัง สีหลังคา ทรงหลังคาของแต่ละปีก
+
+    ลำดับใน parts ตรงกับคีย์ parts ของอาคารในไฟล์ผลลัพธ์ view3d จึงจับคู่กันได้ด้วยดัชนี
+    """
+    return {
+        "wall": src.get("wall") or None,
+        "roof": src.get("roof") or None,
+        "roofType": src.get("roofType") or "flat",
+        "facade": src.get("facade") or None,
+        "parts": [{k: p[k] for k in PART_MODEL_KEYS if p.get(k) is not None}
+                  for p in parts],
+    }
+
+
 def rooms_summary(w):
     """ข้อความสรุปจำนวนห้องต่อชั้น เช่น "ชั้น 2: 8 ห้อง · ชั้น 3: 9 ห้อง" """
     parts = ["ชั้น %d: %d ห้อง" % (f, len(rooms_on(w, f)))
@@ -685,6 +704,7 @@ def build_buildings(ref):
             "rect": bbox(polys),
             "axis": "x" if abs(w["_dir"][0]) >= abs(w["_dir"][1]) else "y",
             "zone": w["zone"],
+            "model": model_of(w["_src"], w["_parts"]),
             "rooms": per_floor,
             "roomsPerFloor": {f: len(codes) for f, codes in per_floor.items()},
             "roomSlots": w.get("roomSlots", 0),
@@ -710,6 +730,7 @@ def build_buildings(ref):
             "shortName": src["name"],
             "code": "",
             "kind": src.get("kind", "สถานที่"),
+            "model": model_of(src, src["parts"]),
             "rooms": {},
             "roomsPerFloor": {},
             "roomSlots": 0,

@@ -64,6 +64,21 @@
       ],
       "axis": "x",
       "zone": "โซนเหนือ",
+      "model": {
+        "wall": "#f4f4f2",
+        "roof": "#6f7c92",
+        "roofType": "gable",
+        "facade": "arch",
+        "parts": [
+          {
+            "ends": [
+              "gable",
+              "gable"
+            ],
+            "pitch": 0.25
+          }
+        ]
+      },
       "rooms": {},
       "roomsPerFloor": {},
       "roomSlots": 0,
@@ -114,6 +129,20 @@
       ],
       "axis": "x",
       "zone": "กลุ่มอาคารเรียน",
+      "model": {
+        "wall": "#f1f2f4",
+        "roof": "#2f4373",
+        "roofType": "hip",
+        "facade": "ribbon",
+        "parts": [
+          {
+            "ends": [
+              "hip",
+              "gable"
+            ]
+          }
+        ]
+      },
       "rooms": {
         "2": [
           "1206",
@@ -190,6 +219,20 @@
       ],
       "axis": "x",
       "zone": "กลุ่มอาคารเรียน",
+      "model": {
+        "wall": "#f1f2f4",
+        "roof": "#2f4373",
+        "roofType": "hip",
+        "facade": "ribbon",
+        "parts": [
+          {
+            "ends": [
+              "hip",
+              "gable"
+            ]
+          }
+        ]
+      },
       "rooms": {
         "2": [
           "2202",
@@ -272,6 +315,20 @@
       ],
       "axis": "x",
       "zone": "กลุ่มอาคารเรียน",
+      "model": {
+        "wall": "#f1f2f4",
+        "roof": "#2f4373",
+        "roofType": "hip",
+        "facade": "ribbon",
+        "parts": [
+          {
+            "ends": [
+              "hip",
+              "gable"
+            ]
+          }
+        ]
+      },
       "rooms": {
         "2": [
           "3202",
@@ -350,6 +407,20 @@
       ],
       "axis": "x",
       "zone": "กลุ่มอาคารเรียน",
+      "model": {
+        "wall": "#f1f2f4",
+        "roof": "#2f4373",
+        "roofType": "hip",
+        "facade": "ribbon",
+        "parts": [
+          {
+            "ends": [
+              "hip",
+              "gable"
+            ]
+          }
+        ]
+      },
       "rooms": {
         "1": [
           "4106",
@@ -435,6 +506,20 @@
       ],
       "axis": "y",
       "zone": "กลุ่มอาคารเรียน (แนวตะวันออก)",
+      "model": {
+        "wall": "#f1f2f4",
+        "roof": "#2f4373",
+        "roofType": "hip",
+        "facade": "ribbon",
+        "parts": [
+          {
+            "ends": [
+              "hip",
+              "hip"
+            ]
+          }
+        ]
+      },
       "rooms": {
         "1": [
           "5116"
@@ -582,6 +667,32 @@
       ],
       "axis": "y",
       "zone": "กลุ่มอาคารเรียน (แนวกลาง)",
+      "model": {
+        "wall": "#f1f2f4",
+        "roof": "#2f4373",
+        "roofType": "hip",
+        "facade": "ribbon",
+        "parts": [
+          {
+            "ends": [
+              "gable",
+              "gable"
+            ]
+          },
+          {
+            "ends": [
+              "gable",
+              "gable"
+            ]
+          },
+          {
+            "ends": [
+              "gable",
+              "gable"
+            ]
+          }
+        ]
+      },
       "rooms": {},
       "roomsPerFloor": {},
       "roomSlots": 0,
@@ -664,6 +775,15 @@
       ],
       "axis": "x",
       "zone": "โซนใต้",
+      "model": {
+        "wall": "#ece6d6",
+        "roof": "#2f4373",
+        "roofType": "hip",
+        "facade": null,
+        "parts": [
+          {}
+        ]
+      },
       "rooms": {
         "1": [
           "7101",
@@ -730,6 +850,20 @@
       ],
       "axis": "y",
       "zone": "ทางเดินเชื่อม",
+      "model": {
+        "wall": "#f1f2f4",
+        "roof": "#2b3a66",
+        "roofType": "gable",
+        "facade": null,
+        "parts": [
+          {
+            "ends": [
+              "gable",
+              "gable"
+            ]
+          }
+        ]
+      },
       "rooms": {},
       "roomsPerFloor": {},
       "roomSlots": 0,
@@ -778,6 +912,20 @@
       ],
       "axis": "y",
       "zone": "ทางเดินเชื่อม",
+      "model": {
+        "wall": "#f1f2f4",
+        "roof": "#2b3a66",
+        "roofType": "gable",
+        "facade": null,
+        "parts": [
+          {
+            "ends": [
+              "gable",
+              "gable"
+            ]
+          }
+        ]
+      },
       "rooms": {},
       "roomsPerFloor": {},
       "roomSlots": 0,
@@ -827,6 +975,20 @@
       ],
       "axis": "y",
       "zone": "ทางเดินเชื่อม",
+      "model": {
+        "wall": "#f4f4f2",
+        "roof": "#2f3d72",
+        "roofType": "hip",
+        "facade": null,
+        "parts": [
+          {
+            "ends": [
+              "gable",
+              "gable"
+            ]
+          }
+        ]
+      },
       "rooms": {},
       "roomsPerFloor": {},
       "roomSlots": 0,
@@ -840,6 +1002,31 @@
       "shortName": "อาคารบดินทรพิพัฒน์",
       "code": "",
       "kind": "หอประชุม",
+      "model": {
+        "wall": "#f2f3f4",
+        "roof": "#3a4a6e",
+        "roofType": "gable",
+        "facade": null,
+        "parts": [
+          {},
+          {
+            "roofType": "gable",
+            "ends": [
+              "gable",
+              "gable"
+            ],
+            "roof": "#f2f3f4"
+          },
+          {
+            "roofType": "gable",
+            "ends": [
+              "gable",
+              "gable"
+            ],
+            "roof": "#f2f3f4"
+          }
+        ]
+      },
       "rooms": {},
       "roomsPerFloor": {},
       "roomSlots": 0,
@@ -923,6 +1110,15 @@
       "shortName": "อาคารกีฬาในร่ม",
       "code": "",
       "kind": "อาคารกีฬา",
+      "model": {
+        "wall": "#e4e0d8",
+        "roof": "#3c4149",
+        "roofType": "hip",
+        "facade": null,
+        "parts": [
+          {}
+        ]
+      },
       "rooms": {},
       "roomsPerFloor": {},
       "roomSlots": 0,
@@ -970,6 +1166,15 @@
       "shortName": "อาคารศูนย์กีฬา",
       "code": "",
       "kind": "อาคารกีฬา",
+      "model": {
+        "wall": "#e4e0d8",
+        "roof": "#b9c0c6",
+        "roofType": "gable",
+        "facade": null,
+        "parts": [
+          {}
+        ]
+      },
       "rooms": {},
       "roomsPerFloor": {},
       "roomSlots": 0,
@@ -1017,6 +1222,15 @@
       "shortName": "สระว่ายน้ำ",
       "code": "",
       "kind": "สระว่ายน้ำ (มีหลังคาคลุม)",
+      "model": {
+        "wall": "#dfe3e6",
+        "roof": "#a9b9c9",
+        "roofType": "gable",
+        "facade": null,
+        "parts": [
+          {}
+        ]
+      },
       "rooms": {},
       "roomsPerFloor": {},
       "roomSlots": 0,
@@ -1064,6 +1278,15 @@
       "shortName": "อาคารหลังคาสีน้ำเงิน",
       "code": "",
       "kind": "อาคาร",
+      "model": {
+        "wall": "#e4e0d8",
+        "roof": "#2f5fb8",
+        "roofType": "gable",
+        "facade": null,
+        "parts": [
+          {}
+        ]
+      },
       "rooms": {},
       "roomsPerFloor": {},
       "roomSlots": 0,
@@ -1111,6 +1334,13 @@
       "shortName": "สนามกีฬา",
       "code": "",
       "kind": "สนามฟุตบอล / ลู่วิ่ง",
+      "model": {
+        "wall": null,
+        "roof": null,
+        "roofType": "flat",
+        "facade": null,
+        "parts": []
+      },
       "rooms": {},
       "roomsPerFloor": {},
       "roomSlots": 0,
@@ -1158,6 +1388,15 @@
       "shortName": "อัฒจันทร์",
       "code": "",
       "kind": "อัฒจันทร์สนามกีฬา",
+      "model": {
+        "wall": null,
+        "roof": null,
+        "roofType": "flat",
+        "facade": null,
+        "parts": [
+          {}
+        ]
+      },
       "rooms": {},
       "roomsPerFloor": {},
       "roomSlots": 0,
@@ -1205,6 +1444,15 @@
       "shortName": "เรือนไทย",
       "code": "",
       "kind": "เรือนไทยไม้สัก (อาคารอนุรักษ์)",
+      "model": {
+        "wall": "#5b3a22",
+        "roof": "#b4552f",
+        "roofType": "hip",
+        "facade": "teak",
+        "parts": [
+          {}
+        ]
+      },
       "rooms": {},
       "roomsPerFloor": {},
       "roomSlots": 0,

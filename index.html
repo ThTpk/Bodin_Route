@@ -123,7 +123,7 @@
 
   <!-- ================= ภาพกราฟ 3 มิติ ================= -->
   <div class="viewport">
-    <canvas id="scene" aria-label="ภาพกราฟโหนดและเส้นเชื่อมแบบ 3 มิติ ลากเพื่อหมุน"></canvas>
+    <canvas id="scene" aria-label="ภาพกราฟโหนดและเส้นเชื่อมแบบ 3 มิติ ลากเพื่อเลื่อนแผนที่"></canvas>
 
     <div class="view-hud view-hud--left">
       <div class="hud-card">
@@ -158,7 +158,7 @@
       </div>
       <div class="hud-card hud-view">
         <button type="button" id="btn-spin" class="hud-toggle" aria-pressed="false">↻ หมุนอัตโนมัติ</button>
-        <button type="button" id="btn-model" class="hud-toggle is-on" aria-pressed="true" title="กล่องอาคารโปร่งแสง เส้นทางวิ่งอยู่ภายใน">🏢 โมเดลอาคาร</button>
+        <button type="button" id="btn-model" class="hud-toggle is-on" aria-pressed="true" title="โมเดลอาคารจริงจากผัง 3 มิติ โปร่งแสง 20% เส้นทางวิ่งอยู่ภายใน">🏢 โมเดลอาคาร</button>
         <button type="button" id="btn-grid" class="hud-toggle is-on" aria-pressed="true">▦ ระนาบชั้น</button>
         <button type="button" id="btn-labels" class="hud-toggle is-on" aria-pressed="true">🏷 ป้ายชื่อ</button>
         <button type="button" id="btn-reset" class="hud-toggle">⟲ มุมมองเริ่มต้น</button>
@@ -170,7 +170,7 @@
       </div>
     </div>
 
-    <div class="view-hint">ลากเพื่อหมุน · Shift+ลาก หรือคลิกขวาลาก เพื่อเลื่อน · สกรอลล์หรือหุบสองนิ้วเพื่อซูม · ปุ่มลูกศร = เลื่อน, Shift+ลูกศร = หมุน · R = เห็นทั้งเส้นทาง · คลิกโหนดเพื่อดูรายละเอียด</div>
+    <div class="view-hint">ควบคุมแบบแผนที่ — ลากเพื่อเลื่อน · คลิกขวาลาก หรือ Ctrl/Shift+ลาก เพื่อหมุนและก้ม-เงย · สกรอลล์เพื่อซูมเข้าหาตำแหน่งเมาส์ · สองนิ้ว หุบ-กาง = ซูม, บิด = หมุน · ปุ่มลูกศร = เลื่อน, Shift+ลูกศร = หมุน · R = เห็นทั้งเส้นทาง · คลิกโหนดเพื่อดูรายละเอียด</div>
 
     <details class="legend" open>
       <summary>สัญลักษณ์ (คลิกเพื่อซ่อน/แสดงในภาพ)</summary>
